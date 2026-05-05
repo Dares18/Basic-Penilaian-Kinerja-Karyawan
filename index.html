@@ -4,15 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Penilaian Kinerja Karyawan - Prodi APU</title>
-    <!-- Tailwind CSS Play CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
-    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         const myLocalFirebaseConfig = {
             apiKey: "AIzaSyDYhgALzdt8VBpv1L08J8pSX-_Av1N9Lt0",
@@ -33,19 +30,18 @@
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
-        } catch (e) {
-            console.error("Firebase Init Error", e);
-        }
+        } catch (e) { console.error("Firebase Init Error", e); }
 
         const appId = window.__app_id || 'performance-appraisal-001';
         const ADMIN_PIN = "1234";
 
-        const EMPLOYEE_DB = [
-            { id: 1, name: "Muhamad Agung S, S.Sos., M.Sos", position: "Kaprodi Ilmu Komunikasi" },
-            { id: 2, name: "Prof Daffa", position: "Orang Pusat" },
-            { id: 3, name: "Rudi Hermawan S.Kom", position: "Orang Penting" },
-            { id: 4, name: "Lala Po", position: "Orang Sibuk" },
-            { id: 5, name: "Wahyu", position: "Wong Koplo" }
+        // State Karyawan (Bisa diedit oleh Admin)
+        let EMPLOYEE_DB = [
+            { id: 1, name: "Muhamad Agung S, S.Sos., M.Sos", position: "Kaprodi Ilmu Komunikasi", photo: "" },
+            { id: 2, name: "Prof Daffa", position: "Orang Pusat", photo: "" },
+            { id: 3, name: "Rudi Hermawan S.Kom", position: "Orang Penting", photo: "" },
+            { id: 4, name: "Lala Po", position: "Orang Sibuk", photo: "" },
+            { id: 5, name: "Wahyu", position: "Wong Koplo", photo: "" }
         ];
 
         const APP_DATA = {
@@ -78,30 +74,88 @@
             }
             document.getElementById('form-view').classList.toggle('hidden', view !== 'form');
             document.getElementById('history-view').classList.toggle('hidden', view !== 'history');
-            document.getElementById('nav-form').className = `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${view === 'form' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`;
-            document.getElementById('nav-history').className = `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${view === 'history' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`;
+            updateUIState();
         };
 
-        window.setScore = (sectionId, idx, value) => {
-            currentScores[`${sectionId}-${idx}`] = value;
-            document.querySelectorAll(`[id^="btn-${sectionId}-${idx}-"]`).forEach(btn => {
-                btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm', 'scale-110');
-                btn.classList.add('text-slate-400');
-            });
-            const activeBtn = document.getElementById(`btn-${sectionId}-${idx}-${value}`);
-            activeBtn.classList.replace('text-slate-400', 'text-indigo-600');
-            activeBtn.classList.add('bg-white', 'shadow-sm', 'scale-110');
-            updateSummary();
+        const updateUIState = () => {
+            const navForm = document.getElementById('nav-form');
+            const navHist = document.getElementById('nav-history');
+            const isForm = !document.getElementById('form-view').classList.contains('hidden');
+            
+            navForm.className = `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${isForm ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`;
+            navHist.className = `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${!isForm ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`;
+            
+            // Tampilkan tombol edit hanya jika admin login
+            const editBtn = document.getElementById('admin-edit-btn');
+            if(isAdminAuthenticated && selectedEmployee) {
+                editBtn.classList.remove('hidden');
+            } else {
+                editBtn.classList.add('hidden');
+            }
         };
 
         window.handleEmployeeSelect = (e) => {
             selectedEmployee = EMPLOYEE_DB.find(emp => emp.id == e.target.value) || null;
-            document.getElementById('emp-position').innerText = selectedEmployee ? selectedEmployee.position : '-';
+            refreshProfileCard();
+            updateUIState();
+            
             document.querySelectorAll('.score-btn').forEach(btn => {
                 btn.disabled = !selectedEmployee;
                 btn.style.opacity = selectedEmployee ? '1' : '0.3';
             });
             updateSummary();
+        };
+
+        const refreshProfileCard = () => {
+            const profileCard = document.getElementById('employee-profile-card');
+            const placeholder = document.getElementById('prof-placeholder');
+            const imgContainer = document.getElementById('prof-img-container');
+            const empPositionHeader = document.getElementById('emp-position');
+
+            if (selectedEmployee) {
+                document.getElementById('prof-name').innerText = selectedEmployee.name;
+                document.getElementById('prof-pos').innerText = selectedEmployee.position;
+                empPositionHeader.innerText = selectedEmployee.position;
+
+                if (selectedEmployee.photo) {
+                    imgContainer.innerHTML = `<img src="${selectedEmployee.photo}" class="w-full h-full object-cover rounded-2xl">`;
+                    placeholder.classList.add('hidden');
+                } else {
+                    imgContainer.innerHTML = '';
+                    placeholder.classList.remove('hidden');
+                }
+                profileCard.classList.remove('hidden');
+            } else {
+                profileCard.classList.add('hidden');
+                empPositionHeader.innerText = '-';
+            }
+        };
+
+        // --- Admin Edit Functions ---
+        window.openEditModal = () => {
+            if(!selectedEmployee) return;
+            document.getElementById('edit-emp-name').value = selectedEmployee.name;
+            document.getElementById('edit-emp-pos').value = selectedEmployee.position;
+            document.getElementById('edit-emp-photo').value = selectedEmployee.photo || '';
+            document.getElementById('edit-modal').classList.remove('hidden');
+        };
+
+        window.saveEmployeeData = () => {
+            const newName = document.getElementById('edit-emp-name').value;
+            const newPos = document.getElementById('edit-emp-pos').value;
+            const newPhoto = document.getElementById('edit-emp-photo').value;
+
+            const index = EMPLOYEE_DB.findIndex(emp => emp.id === selectedEmployee.id);
+            EMPLOYEE_DB[index] = { ...selectedEmployee, name: newName, position: newPos, photo: newPhoto };
+            selectedEmployee = EMPLOYEE_DB[index];
+            
+            // Update Dropdown text
+            const opt = document.querySelector(`#emp-select option[value="${selectedEmployee.id}"]`);
+            if(opt) opt.innerText = newName;
+
+            refreshProfileCard();
+            document.getElementById('edit-modal').classList.add('hidden');
+            showToast("Data Karyawan Diperbarui");
         };
 
         window.verifyPin = () => {
@@ -118,13 +172,25 @@
             input.value = '';
         };
 
+        // ... (Fungsi handleSave, calculateScore, updateSummary tetap sama) ...
+        window.setScore = (sectionId, idx, value) => {
+            currentScores[`${sectionId}-${idx}`] = value;
+            document.querySelectorAll(`[id^="btn-${sectionId}-${idx}-"]`).forEach(btn => {
+                btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm', 'scale-110');
+                btn.classList.add('text-slate-400');
+            });
+            const activeBtn = document.getElementById(`btn-${sectionId}-${idx}-${value}`);
+            activeBtn.classList.replace('text-slate-400', 'text-indigo-600');
+            activeBtn.classList.add('bg-white', 'shadow-sm', 'scale-110');
+            updateSummary();
+        };
+
         window.handleSave = async () => {
             const filledCount = Object.keys(currentScores).length;
             if (!selectedEmployee || filledCount < totalCriteria) {
                 document.getElementById('alert-modal').classList.remove('hidden');
                 return;
             }
-
             const saveBtn = document.getElementById('save-btn');
             saveBtn.disabled = true;
             saveBtn.innerText = "Menyimpan...";
@@ -143,13 +209,8 @@
                 showToast("Data Tersimpan!");
                 window.resetForm();
                 window.toggleView('history');
-            } catch (err) {
-                showToast("Error: " + err.message, "error");
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = 'Simpan';
-                updateSummary();
-            }
+            } catch (err) { showToast("Error: " + err.message, "error"); }
+            finally { saveBtn.disabled = false; saveBtn.innerHTML = 'Simpan'; updateSummary(); }
         };
 
         window.resetForm = () => {
@@ -157,12 +218,14 @@
             selectedEmployee = null;
             document.getElementById('emp-select').value = '';
             document.getElementById('emp-position').innerText = '-';
+            document.getElementById('employee-profile-card').classList.add('hidden');
             document.querySelectorAll('.score-btn').forEach(btn => {
                 btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm', 'scale-110');
                 btn.classList.add('text-slate-400');
                 btn.disabled = true;
             });
             updateSummary();
+            updateUIState();
         };
 
         window.handleDelete = async (id) => {
@@ -179,14 +242,11 @@
             date.setMonth(date.getMonth() - 1);
             return date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
         };
-
         const calculateScore = () => {
             const rawSum = Object.values(currentScores).reduce((a, b) => a + b, 0);
             return Math.round((rawSum / (totalCriteria * 4)) * 680);
         };
-
         const getGradeInfo = (score) => GRADING.find(g => score >= g.min && score <= g.max) || GRADING[3];
-
         const updateSummary = () => {
             const score = calculateScore();
             const gradeInfo = getGradeInfo(score);
@@ -196,15 +256,10 @@
             const filledCount = Object.keys(currentScores).length;
             document.getElementById('progress-bar').style.width = `${(filledCount / totalCriteria) * 100}%`;
             document.getElementById('progress-text').innerText = `${filledCount} / ${totalCriteria} Kriteria`;
-            
-            document.getElementById('save-btn').disabled = false;
-            if(!selectedEmployee || filledCount < totalCriteria) {
-                document.getElementById('save-btn').classList.add('opacity-50');
-            } else {
-                document.getElementById('save-btn').classList.remove('opacity-50');
-            }
+            const saveBtn = document.getElementById('save-btn');
+            if(!selectedEmployee || filledCount < totalCriteria) saveBtn.classList.add('opacity-50');
+            else saveBtn.classList.remove('opacity-50');
         };
-
         const showToast = (msg, type = "success") => {
             const toast = document.getElementById('toast');
             toast.innerText = msg;
@@ -212,7 +267,6 @@
             toast.classList.remove('hidden');
             setTimeout(() => toast.classList.add('hidden'), 3000);
         };
-
         const renderForm = () => {
             const container = document.getElementById('evaluation-sections');
             container.innerHTML = APP_DATA.sections.map(section => `
@@ -238,18 +292,13 @@
             lucide.createIcons();
         };
 
-        // --- Filter Logic ---
         window.applyHistoryFilter = () => {
             const monthFilter = document.getElementById('filter-month').value;
             const yearFilter = document.getElementById('filter-year').value;
-            
             const filtered = allHistoryData.filter(item => {
                 const [month, year] = item.period.split(' ');
-                const matchMonth = monthFilter === "" || month.toLowerCase() === monthFilter.toLowerCase();
-                const matchYear = yearFilter === "" || year === yearFilter;
-                return matchMonth && matchYear;
+                return (monthFilter === "" || month.toLowerCase() === monthFilter.toLowerCase()) && (yearFilter === "" || year === yearFilter);
             });
-            
             renderHistoryTable(filtered);
         };
 
@@ -275,11 +324,11 @@
                         const q = collection(db, 'artifacts', appId, 'public', 'data', 'assessments');
                         onSnapshot(q, (snapshot) => {
                             allHistoryData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt);
-                            applyHistoryFilter(); // Tampilkan dengan filter yang sedang aktif
+                            applyHistoryFilter();
                         });
                     }
                 });
-            } catch (err) { console.error("Auth Error:", err); }
+            } catch (err) { console.error(err); }
         };
 
         window.onload = () => {
@@ -292,12 +341,14 @@
             });
             renderForm();
             init();
+            lucide.createIcons();
         };
     </script>
 </head>
 <body class="bg-slate-50 font-sans text-slate-900 min-h-screen">
     <div id="toast" class="hidden"></div>
     <div class="max-w-5xl mx-auto p-4 md:p-8 space-y-6">
+        
         <!-- Navigation -->
         <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex justify-between items-center">
             <div class="flex items-center gap-3">
@@ -316,12 +367,39 @@
 
         <!-- FORM VIEW -->
         <div id="form-view">
+            <!-- Selector Row -->
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Karyawan</label><select id="emp-select" onchange="handleEmployeeSelect(event)" class="w-full border-b border-slate-200 py-1 bg-transparent outline-none font-bold text-slate-700"><option value="">-- Pilih --</option></select></div>
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Jabatan</label><div id="emp-position" class="py-1 border-b border-slate-100 text-slate-500 font-medium h-8">-</div></div>
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Periode</label><div id="period-display" class="py-1 border-b border-slate-100 text-indigo-600 font-bold h-8">-</div></div>
             </div>
+
+            <!-- PROFILE CARD (Updated with Photo Placeholder & Admin Edit) -->
+            <div id="employee-profile-card" class="hidden bg-white rounded-2xl p-6 shadow-sm border border-slate-200 mb-6 relative group">
+                <div class="flex items-center gap-5">
+                    <!-- Photo Container -->
+                    <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 border-2 border-white shadow-inner overflow-hidden relative" id="prof-img-container">
+                        <!-- Image or Placeholder will be here -->
+                    </div>
+                    <div id="prof-placeholder" class="hidden absolute left-10 top-10 pointer-events-none">
+                        <i data-lucide="user" class="w-8 h-8 text-slate-300"></i>
+                    </div>
+
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800 tracking-tight" id="prof-name">-</h2>
+                        <p class="text-slate-500 font-medium flex items-center gap-1.5"><i data-lucide="briefcase" class="w-4 h-4"></i> <span id="prof-pos">-</span></p>
+                    </div>
+
+                    <!-- Admin Edit Button (Hidden by default) -->
+                    <button id="admin-edit-btn" onclick="openEditModal()" class="hidden ml-auto p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-colors">
+                        <i data-lucide="edit-3" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
             <div id="evaluation-sections"></div>
+            
+            <!-- Sticky Summary Bar -->
             <div class="sticky bottom-8 bg-white/90 backdrop-blur-md rounded-2xl p-6 shadow-2xl border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6 z-40">
                 <div class="flex gap-8 items-center">
                     <div class="text-center"><p class="text-[10px] font-bold text-slate-400 uppercase">Skor</p><p id="final-score" class="text-4xl font-black">0</p></div>
@@ -335,35 +413,22 @@
             </div>
         </div>
 
-        <!-- HISTORY VIEW -->
+        <!-- RIWAYAT VIEW (Sama seperti sebelumnya) -->
         <div id="history-view" class="hidden">
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]">
                 <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50">
                     <h2 class="text-xl font-bold flex items-center gap-2"><i data-lucide="history" class="text-indigo-600"></i> Riwayat</h2>
-                    
-                    <!-- Filters -->
                     <div class="flex flex-wrap items-center gap-2">
-                        <select id="filter-month" onchange="applyHistoryFilter()" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium outline-none focus:border-indigo-500">
+                        <select id="filter-month" onchange="applyHistoryFilter()" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium outline-none">
                             <option value="">Semua Bulan</option>
-                            <option value="Januari">Januari</option>
-                            <option value="Februari">Februari</option>
-                            <option value="Maret">Maret</option>
-                            <option value="April">April</option>
-                            <option value="Mei">Mei</option>
-                            <option value="Juni">Juni</option>
-                            <option value="Juli">Juli</option>
-                            <option value="Agustus">Agustus</option>
-                            <option value="September">September</option>
-                            <option value="Oktober">Oktober</option>
-                            <option value="November">November</option>
-                            <option value="Desember">Desember</option>
+                            <option value="Januari">Januari</option><option value="Februari">Februari</option><option value="Maret">Maret</option>
+                            <option value="April">April</option><option value="Mei">Mei</option><option value="Juni">Juni</option>
+                            <option value="Juli">Juli</option><option value="Agustus">Agustus</option><option value="September">September</option>
+                            <option value="Oktober">Oktober</option><option value="November">November</option><option value="Desember">Desember</option>
                         </select>
-                        <select id="filter-year" onchange="applyHistoryFilter()" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium outline-none focus:border-indigo-500">
+                        <select id="filter-year" onchange="applyHistoryFilter()" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium outline-none">
                             <option value="">Semua Tahun</option>
-                            <option value="2024">2024</option>
-                            <option value="2025">2025</option>
-                            <option value="2026">2026</option>
-                            <option value="2027">2027</option>
+                            <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
                         </select>
                         <button onclick="isAdminAuthenticated = false; toggleView('form');" class="text-xs font-bold text-rose-500 hover:underline sm:ml-2">Logout Admin</button>
                     </div>
@@ -373,24 +438,54 @@
         </div>
     </div>
 
-    <!-- Modals -->
+    <!-- MODAL: PIN ADMIN -->
     <div id="pin-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 hidden">
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-4">
             <div class="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-indigo-600"><i data-lucide="lock" class="w-8 h-8"></i></div>
-            <h3 class="text-xl font-bold text-slate-800">Akses Admin</h3>
+            <h3 class="text-xl font-bold">Akses Admin</h3>
             <input type="password" id="pin-input" class="w-full border-2 border-slate-100 rounded-2xl px-4 py-4 text-center text-2xl tracking-[1em] focus:border-indigo-500 outline-none" placeholder="••••" maxlength="4">
             <div class="flex gap-3"><button onclick="document.getElementById('pin-modal').classList.add('hidden')" class="flex-1 py-4 font-bold text-slate-400">Batal</button><button onclick="verifyPin()" class="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg">Masuk</button></div>
         </div>
     </div>
 
-    <!-- Modal Peringatan (Belum Lengkap) -->
-    <div id="alert-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4 hidden">
-        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-4">
-            <div class="bg-amber-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-amber-600"><i data-lucide="alert-triangle" class="w-8 h-8"></i></div>
-            <h3 class="text-xl font-bold text-slate-800">Data Belum Lengkap!</h3>
-            <p class="text-slate-500">Mohon pilih karyawan dan isi seluruh kriteria penilaian (31 kriteria) sebelum menyimpan.</p>
-            <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg">Tutup</button>
+    <!-- MODAL: EDIT DATA KARYAWAN (Admin Only) -->
+    <div id="edit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4 hidden">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-4">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><i data-lucide="user-cog" class="w-6 h-6"></i></div>
+                <h3 class="text-xl font-bold">Edit Profile Karyawan</h3>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nama Lengkap</label>
+                    <input type="text" id="edit-emp-name" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Jabatan</label>
+                    <input type="text" id="edit-emp-pos" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">URL Foto (Opsional)</label>
+                    <input type="text" id="edit-emp-photo" placeholder="https://link-foto.com/gambar.jpg" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:border-indigo-500">
+                    <p class="text-[10px] text-slate-400 mt-1 italic">*Kosongkan untuk siluet default</p>
+                </div>
+            </div>
+            <div class="flex gap-3 pt-4">
+                <button onclick="document.getElementById('edit-modal').classList.add('hidden')" class="flex-1 py-3 font-bold text-slate-400">Batal</button>
+                <button onclick="saveEmployeeData()" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg">Simpan Perubahan</button>
+            </div>
         </div>
     </div>
+
+    <!-- Modal Alert (Lengkapi Form) -->
+    <div id="alert-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 hidden">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-4">
+            <div class="bg-amber-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-amber-600"><i data-lucide="alert-triangle" class="w-8 h-8"></i></div>
+            <h3 class="text-xl font-bold text-slate-800">Belum Lengkap!</h3>
+            <p class="text-slate-500">Lengkapi seluruh 31 kriteria penilaian sebelum menyimpan data.</p>
+            <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold">Siap!</button>
+        </div>
+    </div>
+
 </body>
 </html>
