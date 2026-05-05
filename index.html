@@ -7,17 +7,13 @@
     <!-- Tailwind CSS Play CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // ==========================================================
-        // 1. SILAKAN ISI CONFIG FIREBASE ANDA DI SINI
-        // Ambil dari Firebase Console > Project Settings > Web App
-        // ==========================================================
         const myLocalFirebaseConfig = {
             apiKey: "AIzaSyDYhgALzdt8VBpv1L08J8pSX-_Av1N9Lt0",
             authDomain: "penilaian-kinerja-karyaw-1a172.firebaseapp.com",
@@ -28,19 +24,17 @@
             measurementId: "G-4CNCMSCHX6"
         };
 
-        // Fallback untuk sistem Canvas (Jangan diubah)
         const firebaseConfig = (typeof window.__firebase_config !== 'undefined' && window.__firebase_config !== "") 
             ? JSON.parse(window.__firebase_config) 
             : myLocalFirebaseConfig;
 
-        // Inisialisasi dengan pengecekan agar tidak error di console
         let app, auth, db;
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
         } catch (e) {
-            console.error("Firebase Init Error: Pastikan Config sudah diisi dengan benar.", e);
+            console.error("Firebase Init Error", e);
         }
 
         const appId = window.__app_id || 'performance-appraisal-001';
@@ -71,13 +65,12 @@
             { grade: 'D', min: 0, max: 170, label: 'Buruk', color: 'bg-rose-500', text: 'text-rose-700' }
         ];
 
-        // --- State ---
         let currentScores = {};
         let selectedEmployee = null;
         let isAdminAuthenticated = false;
         let totalCriteria = APP_DATA.sections.reduce((acc, s) => acc + s.items.length, 0);
+        let allHistoryData = [];
 
-        // --- Global Functions (Attached to window for HTML access) ---
         window.toggleView = (view) => {
             if (view === 'history' && !isAdminAuthenticated) {
                 document.getElementById('pin-modal').classList.remove('hidden');
@@ -85,7 +78,6 @@
             }
             document.getElementById('form-view').classList.toggle('hidden', view !== 'form');
             document.getElementById('history-view').classList.toggle('hidden', view !== 'history');
-            
             document.getElementById('nav-form').className = `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${view === 'form' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`;
             document.getElementById('nav-history').className = `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${view === 'history' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`;
         };
@@ -127,6 +119,12 @@
         };
 
         window.handleSave = async () => {
+            const filledCount = Object.keys(currentScores).length;
+            if (!selectedEmployee || filledCount < totalCriteria) {
+                document.getElementById('alert-modal').classList.remove('hidden');
+                return;
+            }
+
             const saveBtn = document.getElementById('save-btn');
             saveBtn.disabled = true;
             saveBtn.innerText = "Menyimpan...";
@@ -149,8 +147,8 @@
                 showToast("Error: " + err.message, "error");
             } finally {
                 saveBtn.disabled = false;
-                saveBtn.innerHTML = '<i data-lucide="save" class="w-5 h-5 mr-2"></i> Simpan';
-                lucide.createIcons();
+                saveBtn.innerHTML = 'Simpan';
+                updateSummary();
             }
         };
 
@@ -176,7 +174,6 @@
             }
         };
 
-        // --- Private Logic ---
         const getPreviousMonthString = () => {
             const date = new Date();
             date.setMonth(date.getMonth() - 1);
@@ -199,7 +196,13 @@
             const filledCount = Object.keys(currentScores).length;
             document.getElementById('progress-bar').style.width = `${(filledCount / totalCriteria) * 100}%`;
             document.getElementById('progress-text').innerText = `${filledCount} / ${totalCriteria} Kriteria`;
-            document.getElementById('save-btn').disabled = !selectedEmployee || filledCount < totalCriteria;
+            
+            document.getElementById('save-btn').disabled = false;
+            if(!selectedEmployee || filledCount < totalCriteria) {
+                document.getElementById('save-btn').classList.add('opacity-50');
+            } else {
+                document.getElementById('save-btn').classList.remove('opacity-50');
+            }
         };
 
         const showToast = (msg, type = "success") => {
@@ -235,46 +238,61 @@
             lucide.createIcons();
         };
 
+        // --- Filter Logic ---
+        window.applyHistoryFilter = () => {
+            const monthFilter = document.getElementById('filter-month').value;
+            const yearFilter = document.getElementById('filter-year').value;
+            
+            const filtered = allHistoryData.filter(item => {
+                const [month, year] = item.period.split(' ');
+                const matchMonth = monthFilter === "" || month.toLowerCase() === monthFilter.toLowerCase();
+                const matchYear = yearFilter === "" || year === yearFilter;
+                return matchMonth && matchYear;
+            });
+            
+            renderHistoryTable(filtered);
+        };
+
+        const renderHistoryTable = (data) => {
+            const tbody = document.getElementById('history-body');
+            tbody.innerHTML = data.length ? data.map(item => `
+                <tr class="hover:bg-slate-50 border-b border-slate-100">
+                    <td class="px-6 py-4"><p class="font-bold text-slate-800">${item.employeeName}</p><p class="text-xs text-slate-400">${item.position}</p></td>
+                    <td class="px-6 py-4 text-slate-600">${item.period}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 rounded text-white font-bold text-xs ${getGradeInfo(item.score).color}">${item.grade}</span> <span class="font-bold ml-2">${item.score}</span></td>
+                    <td class="px-6 py-4 text-center"><button onclick="window.handleDelete('${item.id}')" class="text-slate-300 hover:text-rose-500"><i data-lucide="trash-2" class="w-5 h-5"></i></button></td>
+                </tr>
+            `).join('') : '<tr><td colspan="4" class="px-6 py-20 text-center text-slate-400 italic">Data tidak ditemukan.</td></tr>';
+            lucide.createIcons();
+        };
+
         const init = async () => {
             if (!auth) return;
             try {
-                if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token) {
-                    await signInWithCustomToken(auth, window.__initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
+                await signInAnonymously(auth);
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         const q = collection(db, 'artifacts', appId, 'public', 'data', 'assessments');
                         onSnapshot(q, (snapshot) => {
-                            const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt);
-                            const tbody = document.getElementById('history-body');
-                            tbody.innerHTML = data.length ? data.map(item => `
-                                <tr class="hover:bg-slate-50 border-b border-slate-100">
-                                    <td class="px-6 py-4"><p class="font-bold text-slate-800">${item.employeeName}</p><p class="text-xs text-slate-400">${item.position}</p></td>
-                                    <td class="px-6 py-4 text-slate-600">${item.period}</td>
-                                    <td class="px-6 py-4"><span class="px-2 py-1 rounded text-white font-bold text-xs ${getGradeInfo(item.score).color}">${item.grade}</span> <span class="font-bold ml-2">${item.score}</span></td>
-                                    <td class="px-6 py-4 text-center"><button onclick="window.handleDelete('${item.id}')" class="text-slate-300 hover:text-rose-500"><i data-lucide="trash-2" class="w-5 h-5"></i></button></td>
-                                </tr>
-                            `).join('') : '<tr><td colspan="4" class="px-6 py-20 text-center text-slate-400 italic">Belum ada riwayat.</td></tr>';
-                            lucide.createIcons();
+                            allHistoryData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt);
+                            applyHistoryFilter(); // Tampilkan dengan filter yang sedang aktif
                         });
                     }
                 });
             } catch (err) { console.error("Auth Error:", err); }
         };
 
-        // Init App
-        document.getElementById('period-display').innerText = getPreviousMonthString();
-        const empSelect = document.getElementById('emp-select');
-        EMPLOYEE_DB.forEach(emp => {
-            const opt = document.createElement('option');
-            opt.value = emp.id; opt.innerText = emp.name;
-            empSelect.appendChild(opt);
-        });
-        renderForm();
-        init();
+        window.onload = () => {
+            document.getElementById('period-display').innerText = getPreviousMonthString();
+            const empSelect = document.getElementById('emp-select');
+            EMPLOYEE_DB.forEach(emp => {
+                const opt = document.createElement('option');
+                opt.value = emp.id; opt.innerText = emp.name;
+                empSelect.appendChild(opt);
+            });
+            renderForm();
+            init();
+        };
     </script>
 </head>
 <body class="bg-slate-50 font-sans text-slate-900 min-h-screen">
@@ -296,6 +314,7 @@
             </div>
         </div>
 
+        <!-- FORM VIEW -->
         <div id="form-view">
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Karyawan</label><select id="emp-select" onchange="handleEmployeeSelect(event)" class="w-full border-b border-slate-200 py-1 bg-transparent outline-none font-bold text-slate-700"><option value="">-- Pilih --</option></select></div>
@@ -311,16 +330,43 @@
                 </div>
                 <div class="flex gap-3 w-full md:w-auto">
                     <button onclick="resetForm()" class="flex-1 md:flex-none px-6 py-3 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50">Batal</button>
-                    <button id="save-btn" onclick="handleSave()" disabled class="flex-1 md:flex-none px-8 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg disabled:opacity-50">Simpan</button>
+                    <button id="save-btn" onclick="handleSave()" class="flex-1 md:flex-none px-8 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg transition-opacity duration-300">Simpan</button>
                 </div>
             </div>
         </div>
 
+        <!-- HISTORY VIEW -->
         <div id="history-view" class="hidden">
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]">
-                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50">
                     <h2 class="text-xl font-bold flex items-center gap-2"><i data-lucide="history" class="text-indigo-600"></i> Riwayat</h2>
-                    <button onclick="isAdminAuthenticated = false; toggleView('form');" class="text-xs font-bold text-rose-500 hover:underline">Keluar Admin</button>
+                    
+                    <!-- Filters -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="filter-month" onchange="applyHistoryFilter()" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium outline-none focus:border-indigo-500">
+                            <option value="">Semua Bulan</option>
+                            <option value="Januari">Januari</option>
+                            <option value="Februari">Februari</option>
+                            <option value="Maret">Maret</option>
+                            <option value="April">April</option>
+                            <option value="Mei">Mei</option>
+                            <option value="Juni">Juni</option>
+                            <option value="Juli">Juli</option>
+                            <option value="Agustus">Agustus</option>
+                            <option value="September">September</option>
+                            <option value="Oktober">Oktober</option>
+                            <option value="November">November</option>
+                            <option value="Desember">Desember</option>
+                        </select>
+                        <select id="filter-year" onchange="applyHistoryFilter()" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium outline-none focus:border-indigo-500">
+                            <option value="">Semua Tahun</option>
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
+                            <option value="2026">2026</option>
+                            <option value="2027">2027</option>
+                        </select>
+                        <button onclick="isAdminAuthenticated = false; toggleView('form');" class="text-xs font-bold text-rose-500 hover:underline sm:ml-2">Logout Admin</button>
+                    </div>
                 </div>
                 <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead class="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-wider"><tr><th class="px-6 py-4">Karyawan</th><th class="px-6 py-4">Periode</th><th class="px-6 py-4">Hasil</th><th class="px-6 py-4 text-center">Aksi</th></tr></thead><tbody id="history-body"></tbody></table></div>
             </div>
@@ -331,9 +377,19 @@
     <div id="pin-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 hidden">
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-4">
             <div class="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-indigo-600"><i data-lucide="lock" class="w-8 h-8"></i></div>
-            <h3 class="text-xl font-bold">Akses Admin</h3>
+            <h3 class="text-xl font-bold text-slate-800">Akses Admin</h3>
             <input type="password" id="pin-input" class="w-full border-2 border-slate-100 rounded-2xl px-4 py-4 text-center text-2xl tracking-[1em] focus:border-indigo-500 outline-none" placeholder="••••" maxlength="4">
-            <div class="flex gap-3"><button onclick="document.getElementById('pin-modal').classList.add('hidden')" class="flex-1 py-4 font-bold text-slate-400">Batal</button><button onclick="verifyPin()" class="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold">Masuk</button></div>
+            <div class="flex gap-3"><button onclick="document.getElementById('pin-modal').classList.add('hidden')" class="flex-1 py-4 font-bold text-slate-400">Batal</button><button onclick="verifyPin()" class="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg">Masuk</button></div>
+        </div>
+    </div>
+
+    <!-- Modal Peringatan (Belum Lengkap) -->
+    <div id="alert-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4 hidden">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-4">
+            <div class="bg-amber-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-amber-600"><i data-lucide="alert-triangle" class="w-8 h-8"></i></div>
+            <h3 class="text-xl font-bold text-slate-800">Data Belum Lengkap!</h3>
+            <p class="text-slate-500">Mohon pilih karyawan dan isi seluruh kriteria penilaian (31 kriteria) sebelum menyimpan.</p>
+            <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg">Tutup</button>
         </div>
     </div>
 </body>
