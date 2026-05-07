@@ -9,7 +9,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         const myLocalFirebaseConfig = {
             apiKey: "AIzaSyDYhgALzdt8VBpv1L08J8pSX-_Av1N9Lt0",
@@ -32,7 +32,7 @@
             db = getFirestore(app);
         } catch (e) { console.error("Firebase Init Error", e); }
 
-        const appId = window.__app_id || 'performance-appraisal-001';
+        const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'performance-appraisal-001';
         const ADMIN_PIN = "1234";
 
         let EMPLOYEE_DB = [
@@ -48,9 +48,9 @@
             { id: 10, name: "Bdn. Lia Ayu K, S.ST., M.Tr.Keb", position: "Dosen Profesi Bidan", photo: "", isActive: true},
             { id: 11, name: "Titik Kurniawati, S.SiT, M.Kes, M.Keb", position : "Kaprodi D3 Kebidanan", photo: "", isActive: true},
             { id: 12, name: "Dewi Elliana, SKM, S.Tr.Keb, M.Kes", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
-            { id: 13, name: "Sheyla Najwatul Maula, S.T., M.Tr.Keb", position: "Dosen D3 Kebidana", photo: "", isActive: true},
+            { id: 13, name: "Sheyla Najwatul Maula, S.T., M.Tr.Keb", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
             { id: 14, name: "dr. Rita Agustina, M.Biomed", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
-            { id: 15, name: "Erna Setyaningsih, S.S.T., M.Tr.Keb", positon: "Dosen D3 Kebidanan", photo: "", isActive: true},
+            { id: 15, name: "Erna Setyaningsih, S.S.T., M.Tr.Keb", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
             { id: 16, name: "Dr. Erwin, S.H., M.Kn., M.H.", position: "Kaprodi S1 Hukum", photo: "", isActive: true},
             { id: 17, name: "Muhamad Chabib F, S.H.I., M.H", position: "Dosen S1 Hukum", photo: "", isActive: true},
             { id: 18, name: "Qolbi Hanif Fadhdlulloh, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
@@ -75,14 +75,27 @@
             { id: 37, name: "Dian Respati Ayu, S.Si., M.Biomed", position: "Dosen S1 Biomedis", photo: "", isActive: true},
             { id: 38, name: "Risky Chandra Satria Irawan S.Si, M.Biomed", position: "Dosen S1 Biomedis", photo: "", isActive: true},
             { id: 39, name: "Naufal Sebastian Anggoro, S.Si., M.Si", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: 40, name: "Dendi Krisna Nugraha, S.Si., M.Sc., PhD.", position: "Dosen S1 Biomedis", photo: "", isAcitve: true},
+            { id: 40, name: "Dendi Krisna Nugraha, S.Si., M.Sc., PhD.", position: "Dosen S1 Biomedis", photo: "", isActive: true},
             { id: 41, name: "Endah Agustina Lestari, S.Si., M.Mol.Biol", position: "Dosen S1 Biomedis", photo: "", isActive: true},
             { id: 42, name: "Fauziah Novita Putri Rifai, S.Si., M.Biotech", position: "Kaprodi S1 Bioteknologi", photo: "", isActive: true},
             { id: 43, name: "Iffan Alif, S.Si, M.Biotech", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
             { id: 44, name: "Nurul Hidayah S.Si, M.Biotech", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: 45, name: "Salindri Prawitasari, S.Si, M.Biotech", position : "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: 46, name: "Waheni Rizky Aprilia, Ph.D.", position : "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: 47, name: "Ahmed Faheem Khan, Ph.D.", position : "Dosen S1 Bioteknologi", photo: "", isActive: true}
+            { id: 45, name: "Salindri Prawitasari, S.Si, M.Biotech", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
+            { id: 46, name: "Waheni Rizky Aprilia, Ph.D.", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
+            { id: 47, name: "Ahmed Faheem Khan, Ph.D.", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
+            { id: 48, name: "Labbra Pasaribu, S.M", position: "Tendik", photo: "", isActive: true},
+            { id: 49, name: "Alvin Syaptia Pratama, S.I.Kom", position: "Tendik", photo: "", isActive: true},
+            { id: 50, name: "Daffa Restu Fadhillah, S.Kom", position: "Tendik", photo: "", isActive: true},
+            { id: 51, name: "Claudea Winandyaz Rakasiwi, S.Pd., m.Pd", position: "Tendik", photo: "", isActive: true},
+            { id: 52, name: "Alya Namira Ikfinasulkha, S.I.P", position: "Tendik", photo: "", isActive: true},
+            { id: 53, name: "Alya Pramesty, S.Si", position: "Tendik", photo: "", isActive: true},
+            { id: 54, name: "Ridha Azzahra, S.Pd", position: "Tendik", photo: "", isActive: true},
+            { id: 55, name: "Dina Haifa Shofwa, A.Md.Keb", position: "Tendik", photo: "", isActive: true},
+            { id: 56, name: "Audre Faniaputri Maulida, S.Pd", position: "Tendik", photo: "", isActive: true},
+            { id: 57, name: "Firda Rismadhani, S.M", position: "Tendik", photo: "", isActive: true},
+            { id: 58, name: "Panji Agung Pidekso, S.Hum", position: "Tendik", photo: "", isActive: true},
+            { id: 59, name: "Rudi Hermawan, S.Kom", position: "Tendik", photo: "", isActive: true},
+            { id: 60, name: "Rifky Ariya Pratama, S.Kom", position: "Tendik", photo: "", isActive: true}
         ];
 
         const APP_DATA = {
@@ -108,8 +121,8 @@
         let totalCriteria = APP_DATA.sections.reduce((acc, s) => acc + s.items.length, 0);
         let allHistoryData = [];
 
-        window.toggleView = (view) => {
-            if (view === 'history' && !isAdminAuthenticated) {
+        window.toggleView = (view, bypassAuth = false) => {
+            if (view === 'history' && !isAdminAuthenticated && !bypassAuth) {
                 document.getElementById('pin-modal').classList.remove('hidden');
                 return;
             }
@@ -142,12 +155,11 @@
             lucide.createIcons();
         };
 
-        // PERBAIKAN: Fungsi Logout Admin
         window.handleAdminLogout = () => {
             isAdminAuthenticated = false;
             showToast("Admin Logout Berhasil", "success");
-            window.toggleView('form'); // Kembali ke form
-            updateUIState(); // Refresh UI (Gembok & Tombol Edit)
+            window.toggleView('form'); 
+            updateUIState(); 
         };
 
         window.handleEmployeeSelect = (e) => {
@@ -219,9 +231,7 @@
             EMPLOYEE_DB[index] = { ...selectedEmployee, name: newName, position: newPos, photo: newPhoto, isActive: newStatus };
             selectedEmployee = EMPLOYEE_DB[index];
             
-            const opt = document.querySelector(`#emp-select option[value="${selectedEmployee.id}"]`);
-            if(opt) opt.innerText = newName;
-
+            updateEmployeeDropdown();
             refreshProfileCard();
             document.getElementById('edit-modal').classList.add('hidden');
             showToast("Data Karyawan Diperbarui");
@@ -234,11 +244,9 @@
                 document.getElementById('pin-modal').classList.add('hidden');
                 updateUIState();
                 showToast("Akses Admin Terverifikasi");
-                // Jika user tadi mencoba buka Riwayat, arahkan ke sana
-                if(document.getElementById('history-view').classList.contains('hidden') && !document.getElementById('form-view').classList.contains('hidden')) {
-                    // Stay here unless explicitly trying to switch
-                } else {
-                    window.toggleView('history');
+                
+                if(document.getElementById('history-view').classList.contains('hidden')) {
+                    window.toggleView('history', true);
                 }
             } else {
                 showToast("PIN Salah!", "error");
@@ -264,6 +272,11 @@
                 document.getElementById('alert-modal').classList.remove('hidden');
                 return;
             }
+            if (!auth.currentUser) {
+                showToast("Kesalahan Autentikasi. Mencoba login kembali...", "error");
+                await initAuth();
+                return;
+            }
             const saveBtn = document.getElementById('save-btn');
             saveBtn.disabled = true;
             saveBtn.innerText = "Menyimpan...";
@@ -279,11 +292,21 @@
                     quality: gradeInfo.label,
                     createdAt: Date.now()
                 });
-                showToast("Data Tersimpan!");
+                
+                showToast("Berhasil Disimpan!", "success");
                 window.resetForm();
-                window.toggleView('history');
-            } catch (err) { showToast("Error: " + err.message, "error"); }
-            finally { saveBtn.disabled = false; saveBtn.innerHTML = 'Simpan'; updateSummary(); }
+                
+                // Fitur Scroll otomatis ke atas setelah berhasil simpan
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+            } catch (err) { 
+                showToast("Tidak Berhasil Disimpan", "error"); 
+                console.error(err);
+            } finally { 
+                saveBtn.disabled = false; 
+                saveBtn.innerHTML = 'Simpan'; 
+                updateSummary(); 
+            }
         };
 
         window.resetForm = () => {
@@ -344,6 +367,53 @@
             toast.classList.remove('hidden');
             setTimeout(() => toast.classList.add('hidden'), 3000);
         };
+
+        // Fungsi baru untuk memperbarui isi Dropdown Karyawan dengan pengelompokan prodi
+        const updateEmployeeDropdown = () => {
+            const empSelect = document.getElementById('emp-select');
+            const currentValue = empSelect.value;
+            empSelect.innerHTML = '<option value="">-- Pilih --</option>';
+            
+            const namesInHistory = allHistoryData.map(h => h.employeeName);
+            const availableEmployees = EMPLOYEE_DB.filter(emp => !namesInHistory.includes(emp.name));
+
+            // Daftar Prodi untuk pengelompokan
+            const prodiGroups = [
+                { label: "S1 Kebidanan", keyword: "S1 Kebidanan" },
+                { label: "Profesi Bidan", keyword: "Profesi Bidan" },
+                { label: "D3 Kebidanan", keyword: "D3 Kebidanan" },
+                { label: "S1 Hukum", keyword: "S1 Hukum" },
+                { label: "S1 Ilmu Komunikasi", keyword: "S1 Ilmu Komunikasi" },
+                { label: "S1 Manajemen", keyword: "S1 Manajemen" },
+                { label: "S1 Biomedis", keyword: "S1 Biomedis" },
+                { label: "S1 Bioteknologi", keyword: "S1 Bioteknologi" },
+                { label: "Tenaga Kependidikan (Tendik)", keyword: "Tendik" }
+            ];
+
+            prodiGroups.forEach(group => {
+                // Menambahkan pengecekan keamanan (emp.position || "") agar tidak error jika data kosong
+                const groupEmployees = availableEmployees.filter(emp => (emp.position || "").includes(group.keyword));
+                
+                if (groupEmployees.length > 0) {
+                    const optGroup = document.createElement('optgroup');
+                    optGroup.label = `-- ${group.label} --`;
+                    
+                    groupEmployees.forEach(emp => {
+                        const opt = document.createElement('option');
+                        opt.value = emp.id;
+                        opt.innerText = emp.name;
+                        optGroup.appendChild(opt);
+                    });
+                    
+                    empSelect.appendChild(optGroup);
+                }
+            });
+
+            if (currentValue && Array.from(empSelect.options).some(o => o.value === currentValue)) {
+                empSelect.value = currentValue;
+            }
+        };
+
         const renderForm = () => {
             const container = document.getElementById('evaluation-sections');
             container.innerHTML = APP_DATA.sections.map(section => `
@@ -396,30 +466,42 @@
             lucide.createIcons();
         };
 
-        const init = async () => {
+        const initAuth = async () => {
             if (!auth) return;
             try {
-                await signInAnonymously(auth);
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        const q = collection(db, 'artifacts', appId, 'public', 'data', 'assessments');
-                        onSnapshot(q, (snapshot) => {
-                            allHistoryData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt);
-                            applyHistoryFilter();
-                        });
-                    }
-                });
-            } catch (err) { console.error(err); }
+                if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token) {
+                    await signInWithCustomToken(auth, window.__initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Auth init error:", err);
+            }
+        };
+
+        const init = async () => {
+            if (!auth) return;
+            await initAuth();
+
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    const q = collection(db, 'artifacts', appId, 'public', 'data', 'assessments');
+                    onSnapshot(q, (snapshot) => {
+                        allHistoryData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt);
+                        applyHistoryFilter();
+                        updateEmployeeDropdown(); 
+                    }, (error) => {
+                        console.error("Firestore Snapshot Error:", error);
+                        if (error.code === 'permission-denied') {
+                            initAuth();
+                        }
+                    });
+                }
+            });
         };
 
         window.onload = () => {
             document.getElementById('period-display').innerText = getPreviousMonthString();
-            const empSelect = document.getElementById('emp-select');
-            EMPLOYEE_DB.forEach(emp => {
-                const opt = document.createElement('option');
-                opt.value = emp.id; opt.innerText = emp.name;
-                empSelect.appendChild(opt);
-            });
             renderForm();
             init();
             lucide.createIcons();
@@ -430,7 +512,6 @@
     <div id="toast" class="hidden"></div>
     <div class="max-w-5xl mx-auto p-4 md:p-8 space-y-6">
         
-        <!-- Navigation -->
         <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <div class="bg-indigo-600 p-2 rounded-lg text-white"><i data-lucide="clipboard-check" class="w-6 h-6"></i></div>
@@ -446,7 +527,6 @@
             </div>
         </div>
 
-        <!-- FORM VIEW -->
         <div id="form-view">
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Karyawan</label><select id="emp-select" onchange="handleEmployeeSelect(event)" class="w-full border-b border-slate-200 py-1 bg-transparent outline-none font-bold text-slate-700"><option value="">-- Pilih --</option></select></div>
@@ -494,7 +574,6 @@
             </div>
         </div>
 
-        <!-- RIWAYAT VIEW -->
         <div id="history-view" class="hidden">
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]">
                 <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50">
@@ -511,7 +590,6 @@
                             <option value="">Semua Tahun</option>
                             <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
                         </select>
-                        <!-- PERBAIKAN: Tombol Logout menggunakan fungsi baru -->
                         <button onclick="handleAdminLogout()" class="text-xs font-bold text-rose-500 hover:underline sm:ml-2">Logout Admin</button>
                     </div>
                 </div>
@@ -520,9 +598,8 @@
         </div>
     </div>
 
-    <!-- MODAL: PIN ADMIN -->
     <div id="pin-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 hidden">
-        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-4">
+        <div class="bg-white rounded-3xl p-8 max-sm w-full shadow-2xl text-center space-y-4">
             <div class="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-indigo-600"><i data-lucide="lock" class="w-8 h-8"></i></div>
             <h3 class="text-xl font-bold">Akses Admin</h3>
             <p class="text-xs text-slate-400">Masukkan PIN untuk mengedit data karyawan atau melihat riwayat.</p>
@@ -531,7 +608,6 @@
         </div>
     </div>
 
-    <!-- MODAL: EDIT DATA KARYAWAN -->
     <div id="edit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4 hidden">
         <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-4">
             <div class="flex items-center gap-3 mb-2">
@@ -566,7 +642,6 @@
         </div>
     </div>
 
-    <!-- Modal Alert -->
     <div id="alert-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 hidden">
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-4">
             <div class="bg-amber-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-amber-600"><i data-lucide="alert-triangle" class="w-8 h-8"></i></div>
