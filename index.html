@@ -120,9 +120,11 @@
         let isAdminAuthenticated = false;
         let totalCriteria = APP_DATA.sections.reduce((acc, s) => acc + s.items.length, 0);
         let allHistoryData = [];
+        let pinAction = null; // Aksi yang akan dijalankan setelah PIN benar
 
         window.toggleView = (view, bypassAuth = false) => {
             if (view === 'history' && !isAdminAuthenticated && !bypassAuth) {
+                pinAction = () => window.toggleView('history', true);
                 document.getElementById('pin-modal').classList.remove('hidden');
                 return;
             }
@@ -167,9 +169,19 @@
             refreshProfileCard();
             updateUIState();
             
+            // Cek keaktifan karyawan untuk mengunci form
+            const canFill = selectedEmployee && selectedEmployee.isActive;
+            const inactiveWarning = document.getElementById('inactive-warning');
+            
+            if (selectedEmployee && !selectedEmployee.isActive) {
+                inactiveWarning.classList.remove('hidden');
+            } else {
+                inactiveWarning.classList.add('hidden');
+            }
+
             document.querySelectorAll('.score-btn').forEach(btn => {
-                btn.disabled = !selectedEmployee;
-                btn.style.opacity = selectedEmployee ? '1' : '0.3';
+                btn.disabled = !canFill;
+                btn.style.opacity = canFill ? '1' : '0.3';
             });
             updateSummary();
         };
@@ -210,6 +222,7 @@
 
         window.openEditModal = () => {
             if (!isAdminAuthenticated) {
+                pinAction = () => window.openEditModal();
                 document.getElementById('pin-modal').classList.remove('hidden');
                 return;
             }
@@ -231,6 +244,10 @@
             EMPLOYEE_DB[index] = { ...selectedEmployee, name: newName, position: newPos, photo: newPhoto, isActive: newStatus };
             selectedEmployee = EMPLOYEE_DB[index];
             
+            // Trigger ulang seleksi untuk update kunci form
+            const mockEvent = { target: { value: selectedEmployee.id } };
+            window.handleEmployeeSelect(mockEvent);
+
             updateEmployeeDropdown();
             refreshProfileCard();
             document.getElementById('edit-modal').classList.add('hidden');
@@ -245,8 +262,10 @@
                 updateUIState();
                 showToast("Akses Admin Terverifikasi");
                 
-                if(document.getElementById('history-view').classList.contains('hidden')) {
-                    window.toggleView('history', true);
+                // Jalankan aksi yang tertunda
+                if (pinAction) {
+                    pinAction();
+                    pinAction = null;
                 }
             } else {
                 showToast("PIN Salah!", "error");
@@ -268,7 +287,13 @@
 
         window.handleSave = async () => {
             const filledCount = Object.keys(currentScores).length;
-            if (!selectedEmployee || filledCount < totalCriteria) {
+            
+            if (!selectedEmployee || !selectedEmployee.isActive) {
+                showToast("Karyawan Tidak Aktif. Tidak dapat menyimpan.", "error");
+                return;
+            }
+
+            if (filledCount < totalCriteria) {
                 document.getElementById('alert-modal').classList.remove('hidden');
                 return;
             }
@@ -315,6 +340,7 @@
             document.getElementById('emp-select').value = '';
             document.getElementById('emp-position').innerText = '-';
             document.getElementById('employee-profile-card').classList.add('hidden');
+            document.getElementById('inactive-warning').classList.add('hidden');
             document.querySelectorAll('.score-btn').forEach(btn => {
                 btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm', 'scale-110');
                 btn.classList.add('text-slate-400');
@@ -356,8 +382,11 @@
             const filledCount = Object.keys(currentScores).length;
             document.getElementById('progress-bar').style.width = `${(filledCount / totalCriteria) * 100}%`;
             document.getElementById('progress-text').innerText = `${filledCount} / ${totalCriteria} Kriteria`;
+            
             const saveBtn = document.getElementById('save-btn');
-            if(!selectedEmployee || filledCount < totalCriteria) saveBtn.classList.add('opacity-50');
+            const canSave = selectedEmployee && selectedEmployee.isActive && filledCount >= totalCriteria;
+            
+            if(!canSave) saveBtn.classList.add('opacity-50');
             else saveBtn.classList.remove('opacity-50');
         };
         const showToast = (msg, type = "success") => {
@@ -402,6 +431,8 @@
                         const opt = document.createElement('option');
                         opt.value = emp.id;
                         opt.innerText = emp.name;
+                        // Tambahkan indikator (Tidak Aktif) pada dropdown jika statusnya non-aktif
+                        if (!emp.isActive) opt.innerText += " (Tidak Aktif)";
                         optGroup.appendChild(opt);
                     });
                     
@@ -532,6 +563,11 @@
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Karyawan</label><select id="emp-select" onchange="handleEmployeeSelect(event)" class="w-full border-b border-slate-200 py-1 bg-transparent outline-none font-bold text-slate-700"><option value="">-- Pilih --</option></select></div>
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Jabatan</label><div id="emp-position" class="py-1 border-b border-slate-100 text-slate-500 font-medium h-8">-</div></div>
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Periode</label><div id="period-display" class="py-1 border-b border-slate-100 text-indigo-600 font-bold h-8">-</div></div>
+            </div>
+
+            <div id="inactive-warning" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-6 flex items-center gap-3 text-rose-600 animate-pulse">
+                <i data-lucide="alert-circle" class="w-5 h-5"></i>
+                <p class="text-sm font-bold tracking-tight">Karyawan ini berstatus tidak aktif. Penilaian tidak dapat dilakukan.</p>
             </div>
 
             <div id="employee-profile-card" class="hidden bg-white rounded-3xl p-8 shadow-sm border border-slate-200 mb-6 relative overflow-hidden group tracking-tight">
