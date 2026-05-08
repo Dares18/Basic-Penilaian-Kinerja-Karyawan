@@ -31,7 +31,6 @@
         const appId = 'performance-appraisal-001';
         const ADMIN_PIN = "1234";
 
-        // Data awal hanya digunakan saat inisialisasi pertama kali
         const INITIAL_EMPLOYEES = [
             { id: "1", name: "Rizqitha, S.Tr.Keb., M.Tr.Keb", position: "Kaprodi S1 Kebidanan", photo: "", isActive: true },
             { id: "2", name: "Bd. Mariza Mustika D, S.Tr.Keb., M.Tr.Keb", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
@@ -53,7 +52,7 @@
             { id: "18", name: "Qolbi Hanif Fadhdlulloh, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
             { id: "19", name: "Naufal Sebastian, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
             { id: "20", name: "Pandam Bayu Seto Aji, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
-            { id: "21, name", name: "Eko Setyo Ari Wibowo, S.H.I., M.H", position: "Dosen S1 Hukum", photo: "", isActive: true},
+            { id: "21", name: "Eko Setyo Ari Wibowo, S.H.I., M.H", position: "Dosen S1 Hukum", photo: "", isActive: true},
             { id: "22", name: "Muhamad Agung Setiawan, S.Sos., M.Sos", position: "Kaprodi S1 Ilmu Komunikasi", photo:"", isActive: true},
             { id: "23", name: "Sutinnarto, S.I.Kom., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
             { id: "24", name: "Rif'atul Himmah, S.Sos., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
@@ -238,7 +237,6 @@
             const newStatus = document.getElementById('edit-emp-status').value === "true";
 
             try {
-                // Simpan perubahan ke Firestore secara permanen
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'employees', selectedEmployee.id), {
                     id: selectedEmployee.id,
                     name: newName,
@@ -248,7 +246,7 @@
                 });
 
                 document.getElementById('edit-modal').classList.add('hidden');
-                showToast("Data Karyawan Tersimpan Permanen");
+                showToast("Data Karyawan Tersimpan");
             } catch (err) {
                 console.error(err);
                 showToast("Gagal menyimpan perubahan", "error");
@@ -284,7 +282,7 @@
         window.handleSave = async () => {
             const filledCount = Object.keys(currentScores).length;
             if (!selectedEmployee || !selectedEmployee.isActive) {
-                showToast("Karyawan Tidak Aktif. Tidak dapat menyimpan.", "error");
+                showToast("Karyawan Tidak Aktif", "error");
                 return;
             }
             if (filledCount < totalCriteria) {
@@ -378,31 +376,27 @@
             setTimeout(() => toast.classList.add('hidden'), 3000);
         };
 
+        // PERBAIKAN: Fungsi Dropdown Dinamis
         const updateEmployeeDropdown = () => {
             const empSelect = document.getElementById('emp-select');
             const currentValue = empSelect.value;
             empSelect.innerHTML = '<option value="">-- Pilih --</option>';
             
             const namesInHistory = allHistoryData.map(h => h.employeeName);
+            // Filter karyawan yang belum dinilai
             const availableEmployees = EMPLOYEE_DB.filter(emp => !namesInHistory.includes(emp.name));
 
-            const prodiGroups = [
-                { label: "S1 Kebidanan", keyword: "S1 Kebidanan" },
-                { label: "Profesi Bidan", keyword: "Profesi Bidan" },
-                { label: "D3 Kebidanan", keyword: "D3 Kebidanan" },
-                { label: "S1 Hukum", keyword: "S1 Hukum" },
-                { label: "S1 Ilmu Komunikasi", keyword: "S1 Ilmu Komunikasi" },
-                { label: "S1 Manajemen", keyword: "S1 Manajemen" },
-                { label: "S1 Biomedis", keyword: "S1 Biomedis" },
-                { label: "S1 Bioteknologi", keyword: "S1 Bioteknologi" },
-                { label: "Tenaga Kependidikan (Tendik)", keyword: "Tendik" }
-            ];
+            // Langkah 1: Kumpulkan semua jabatan unik yang ada di database
+            const uniquePositions = [...new Set(availableEmployees.map(emp => emp.position || "Lainnya"))].sort();
 
-            prodiGroups.forEach(group => {
-                const groupEmployees = availableEmployees.filter(emp => (emp.position || "").includes(group.keyword));
+            // Langkah 2: Render dropdown per Jabatan/Posisi secara otomatis
+            uniquePositions.forEach(pos => {
+                const groupEmployees = availableEmployees.filter(emp => emp.position === pos);
                 if (groupEmployees.length > 0) {
                     const optGroup = document.createElement('optgroup');
-                    optGroup.label = `-- ${group.label} --`;
+                    // Format label prodi/jabatan agar lebih cantik
+                    optGroup.label = `-- ${pos} --`;
+                    
                     groupEmployees.forEach(emp => {
                         const opt = document.createElement('option');
                         opt.value = emp.id;
@@ -443,13 +437,11 @@
             lucide.createIcons();
         };
 
-        // Inisialisasi data karyawan dari database
         const initEmployees = async () => {
             const empCol = collection(db, 'artifacts', appId, 'public', 'data', 'employees');
             const snapshot = await getDocs(empCol);
             
             if (snapshot.empty) {
-                // Jika database kosong, masukkan data awal
                 const batch = writeBatch(db);
                 INITIAL_EMPLOYEES.forEach(emp => {
                     const d = doc(db, 'artifacts', appId, 'public', 'data', 'employees', emp.id);
@@ -458,7 +450,6 @@
                 await batch.commit();
             }
 
-            // Dapatkan data secara real-time
             onSnapshot(empCol, (snap) => {
                 EMPLOYEE_DB = snap.docs.map(d => d.data());
                 updateEmployeeDropdown();
@@ -477,13 +468,16 @@
                     await initEmployees();
                     const q = collection(db, 'artifacts', appId, 'public', 'data', 'assessments');
                     onSnapshot(q, (snapshot) => {
-                        allHistoryData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt);
+                        allHistoryData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                        updateEmployeeDropdown();
+                        
                         const monthFilter = document.getElementById('filter-month').value;
                         const yearFilter = document.getElementById('filter-year').value;
                         const filtered = allHistoryData.filter(item => {
                             const [month, year] = item.period.split(' ');
                             return (monthFilter === "" || month.toLowerCase() === monthFilter.toLowerCase()) && (yearFilter === "" || year === yearFilter);
-                        });
+                        }).sort((a, b) => b.createdAt - a.createdAt);
+                        
                         const tbody = document.getElementById('history-body');
                         tbody.innerHTML = filtered.length ? filtered.map(item => `
                             <tr class="hover:bg-slate-50 border-b border-slate-100">
@@ -494,7 +488,6 @@
                             </tr>
                         `).join('') : '<tr><td colspan="4" class="px-6 py-20 text-center text-slate-400 italic">Data tidak ditemukan.</td></tr>';
                         lucide.createIcons();
-                        updateEmployeeDropdown();
                     });
                 }
             });
@@ -530,7 +523,7 @@
 
             <div id="inactive-warning" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-6 flex items-center gap-3 text-rose-600">
                 <i data-lucide="alert-circle" class="w-5 h-5"></i>
-                <p class="text-sm font-bold tracking-tight">Karyawan ini berstatus tidak aktif. Penilaian tidak dapat dilakukan.</p>
+                <p class="text-sm font-bold tracking-tight">Karyawan ini berstatus tidak aktif.</p>
             </div>
 
             <div id="employee-profile-card" class="hidden bg-white rounded-3xl p-8 shadow-sm border border-slate-200 mb-6 relative overflow-hidden tracking-tight">
@@ -600,9 +593,9 @@
     </div>
 
     <div id="alert-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 hidden">
-        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-4">
+        <div class="bg-white rounded-3xl p-8 max-sm w-full shadow-2xl text-center space-y-4">
             <h3 class="text-xl font-bold text-slate-800">Belum Lengkap!</h3>
-            <p class="text-slate-500">Lengkapi seluruh 31 kriteria penilaian sebelum menyimpan data.</p>
+            <p class="text-slate-500">Lengkapi seluruh 31 kriteria penilaian.</p>
             <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold">Siap!</button>
         </div>
     </div>
