@@ -8,10 +8,10 @@
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, setDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        const myLocalFirebaseConfig = {
+        const firebaseConfig = {
             apiKey: "AIzaSyDYhgALzdt8VBpv1L08J8pSX-_Av1N9Lt0",
             authDomain: "penilaian-kinerja-karyaw-1a172.firebaseapp.com",
             projectId: "penilaian-kinerja-karyaw-1a172",
@@ -21,10 +21,6 @@
             measurementId: "G-4CNCMSCHX6"
         };
 
-        const firebaseConfig = (typeof window.__firebase_config !== 'undefined' && window.__firebase_config !== "") 
-            ? JSON.parse(window.__firebase_config) 
-            : myLocalFirebaseConfig;
-
         let app, auth, db;
         try {
             app = initializeApp(firebaseConfig);
@@ -32,70 +28,71 @@
             db = getFirestore(app);
         } catch (e) { console.error("Firebase Init Error", e); }
 
-        const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'performance-appraisal-001';
+        const appId = 'performance-appraisal-001';
         const ADMIN_PIN = "1234";
 
-        let EMPLOYEE_DB = [
-            { id: 1, name: "Rizqitha, S.Tr.Keb., M.Tr.Keb", position: "Kaprodi S1 Kebidanan", photo: "", isActive: true },
-            { id: 2, name: "Bd. Mariza Mustika D, S.Tr.Keb., M.Tr.Keb", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
-            { id: 3, name: "Rizqi Dian Pratiwi, S.Tr.Keb., M.Tr.Keb", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
-            { id: 4, name: "Dini Cahyani, S.Si, M.Biotech", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
-            { id: 5, name: "Diah Widyatun, S.S.T., M.Tr.Keb", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
-            { id: 6, name: "Bd. Isnu Kurnia N, S.Tr.Keb., M.Tr.Keb", position: "Dosen Profesi Bidan", photo: "", isActive: true},
-            { id: 7, name: "Bdn. Frida Cahyaningrum, S.SiT, M.Kes", position: "Dosen Profesi Bidan", photo: "", isActive: true},
-            { id: 8, name: "Endah Wijayanti, S.SiT, M.Kes", position: "Dosen Profesi Bidan", photo: "", isActive: true},
-            { id: 9, name: "Bdn. Sri Mularsih, S.SiT, M.Kes", position: "Dosen Profesi Bidan", photo: "", isActive: true},
-            { id: 10, name: "Bdn. Lia Ayu K, S.ST., M.Tr.Keb", position: "Dosen Profesi Bidan", photo: "", isActive: true},
-            { id: 11, name: "Titik Kurniawati, S.SiT, M.Kes, M.Keb", position : "Kaprodi D3 Kebidanan", photo: "", isActive: true},
-            { id: 12, name: "Dewi Elliana, SKM, S.Tr.Keb, M.Kes", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
-            { id: 13, name: "Sheyla Najwatul Maula, S.T., M.Tr.Keb", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
-            { id: 14, name: "dr. Rita Agustina, M.Biomed", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
-            { id: 15, name: "Erna Setyaningsih, S.S.T., M.Tr.Keb", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
-            { id: 16, name: "Dr. Erwin, S.H., M.Kn., M.H.", position: "Kaprodi S1 Hukum", photo: "", isActive: true},
-            { id: 17, name: "Muhamad Chabib F, S.H.I., M.H", position: "Dosen S1 Hukum", photo: "", isActive: true},
-            { id: 18, name: "Qolbi Hanif Fadhdlulloh, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
-            { id: 19, name: "Naufal Sebastian, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
-            { id: 20, name: "Pandam Bayu Seto Aji, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
-            { id: 21, name: "Eko Setyo Ari Wibowo, S.H.I., M.H", position: "Dosen S1 Hukum", photo: "", isActive: true},
-            { id: 22, name: "Muhamad Agung Setiawan, S.Sos., M.Sos", position: "Kaprodi S1 Ilmu Komunikasi", photo:"", isActive: true},
-            { id: 23, name: "Sutinnarto, S.I.Kom., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
-            { id: 24, name: "Rif'atul Himmah, S.Sos., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
-            { id: 25, name: "Najmi Rizki Khairani, S.Sos., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
-            { id: 26, name: "Lakna Tulas'un, S.Sos., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
-            { id: 27, name: "Bondan Eko Suratno, S.S. M.A", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
-            { id: 28, name: "Reni Nur Arifah, S.E., M.M.", position: "Kaprodi S1 Manajemen", photo: "", isActive: true},
-            { id: 29, name: "Yetty Yuliany K, S.E., M.M.", position: "Dosen S1 Manajemen", photo: "", isActive: true},
-            { id: 30, name: "Randika Shafly Fawwas, S.M., M.M.", position: "Dosen S1 Manajemen", photo: "", isActive: true},
-            { id: 31, name: "Putri Aryo Jelang Fitri Khothimah, S.E., M.M.", position: "Dosen S1 Manajemen", photo: "", isActive: true},
-            { id: 32, name: "Anindya Putri Utami, S.M., M.M", position: "Dosen S1 Manajemen", photo: "", isActive: true},
-            { id: 33, name: "Eva Fachria, S.E., M.S.M", position: "Dosen S1 Manajemen", photo: "", isActive: true},
-            { id: 34, name: "Dr. Agus Fahrurrozy Abdillah, ST., MBA", position: "Dosen S1 Manajemen", photo: "", isActive: true},
-            { id: 35, name: "Nadya Audina NS. S.Si., M.Biomed", position: "Kaprodi S1 Biomedis", photo: "", isActive: true},
-            { id: 36, name: "Mohammad Ariq Nazar, S.Si, M.Biomed", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: 37, name: "Dian Respati Ayu, S.Si., M.Biomed", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: 38, name: "Risky Chandra Satria Irawan S.Si, M.Biomed", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: 39, name: "Naufal Sebastian Anggoro, S.Si., M.Si", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: 40, name: "Dendi Krisna Nugraha, S.Si., M.Sc., PhD.", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: 41, name: "Endah Agustina Lestari, S.Si., M.Mol.Biol", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: 42, name: "Fauziah Novita Putri Rifai, S.Si., M.Biotech", position: "Kaprodi S1 Bioteknologi", photo: "", isActive: true},
-            { id: 43, name: "Iffan Alif, S.Si, M.Biotech", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: 44, name: "Nurul Hidayah S.Si, M.Biotech", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: 45, name: "Salindri Prawitasari, S.Si, M.Biotech", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: 46, name: "Waheni Rizky Aprilia, Ph.D.", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: 47, name: "Ahmed Faheem Khan, Ph.D.", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: 48, name: "Labbra Pasaribu, S.M", position: "Tendik", photo: "", isActive: true},
-            { id: 49, name: "Alvin Syaptia Pratama, S.I.Kom", position: "Tendik", photo: "", isActive: true},
-            { id: 50, name: "Daffa Restu Fadhillah, S.Kom", position: "Tendik", photo: "", isActive: true},
-            { id: 51, name: "Claudea Winandyaz Rakasiwi, S.Pd., m.Pd", position: "Tendik", photo: "", isActive: true},
-            { id: 52, name: "Alya Namira Ikfinasulkha, S.I.P", position: "Tendik", photo: "", isActive: true},
-            { id: 53, name: "Alya Pramesty, S.Si", position: "Tendik", photo: "", isActive: true},
-            { id: 54, name: "Ridha Azzahra, S.Pd", position: "Tendik", photo: "", isActive: true},
-            { id: 55, name: "Dina Haifa Shofwa, A.Md.Keb", position: "Tendik", photo: "", isActive: true},
-            { id: 56, name: "Audre Faniaputri Maulida, S.Pd", position: "Tendik", photo: "", isActive: true},
-            { id: 57, name: "Firda Rismadhani, S.M", position: "Tendik", photo: "", isActive: true},
-            { id: 58, name: "Panji Agung Pidekso, S.Hum", position: "Tendik", photo: "", isActive: true},
-            { id: 59, name: "Rudi Hermawan, S.Kom", position: "Tendik", photo: "", isActive: true},
-            { id: 60, name: "Rifky Ariya Pratama, S.Kom", position: "Tendik", photo: "", isActive: true}
+        // Data awal hanya digunakan saat inisialisasi pertama kali
+        const INITIAL_EMPLOYEES = [
+            { id: "1", name: "Rizqitha, S.Tr.Keb., M.Tr.Keb", position: "Kaprodi S1 Kebidanan", photo: "", isActive: true },
+            { id: "2", name: "Bd. Mariza Mustika D, S.Tr.Keb., M.Tr.Keb", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
+            { id: "3", name: "Rizqi Dian Pratiwi, S.Tr.Keb., M.Tr.Keb", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
+            { id: "4", name: "Dini Cahyani, S.Si, M.Biotech", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
+            { id: "5", name: "Diah Widyatun, S.S.T., M.Tr.Keb", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
+            { id: "6", name: "Bd. Isnu Kurnia N, S.Tr.Keb., M.Tr.Keb", position: "Dosen Profesi Bidan", photo: "", isActive: true},
+            { id: "7", name: "Bdn. Frida Cahyaningrum, S.SiT, M.Kes", position: "Dosen Profesi Bidan", photo: "", isActive: true},
+            { id: "8", name: "Endah Wijayanti, S.SiT, M.Kes", position: "Dosen Profesi Bidan", photo: "", isActive: true},
+            { id: "9", name: "Bdn. Sri Mularsih, S.SiT, M.Kes", position: "Dosen Profesi Bidan", photo: "", isActive: true},
+            { id: "10", name: "Bdn. Lia Ayu K, S.ST., M.Tr.Keb", position: "Dosen Profesi Bidan", photo: "", isActive: true},
+            { id: "11", name: "Titik Kurniawati, S.SiT, M.Kes, M.Keb", position : "Kaprodi D3 Kebidanan", photo: "", isActive: true},
+            { id: "12", name: "Dewi Elliana, SKM, S.Tr.Keb, M.Kes", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
+            { id: "13", name: "Sheyla Najwatul Maula, S.T., M.Tr.Keb", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
+            { id: "14", name: "dr. Rita Agustina, M.Biomed", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
+            { id: "15", name: "Erna Setyaningsih, S.S.T., M.Tr.Keb", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
+            { id: "16", name: "Dr. Erwin, S.H., M.Kn., M.H.", position: "Kaprodi S1 Hukum", photo: "", isActive: true},
+            { id: "17", name: "Muhamad Chabib F, S.H.I., M.H", position: "Dosen S1 Hukum", photo: "", isActive: true},
+            { id: "18", name: "Qolbi Hanif Fadhdlulloh, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
+            { id: "19", name: "Naufal Sebastian, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
+            { id: "20", name: "Pandam Bayu Seto Aji, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
+            { id: "21, name", name: "Eko Setyo Ari Wibowo, S.H.I., M.H", position: "Dosen S1 Hukum", photo: "", isActive: true},
+            { id: "22", name: "Muhamad Agung Setiawan, S.Sos., M.Sos", position: "Kaprodi S1 Ilmu Komunikasi", photo:"", isActive: true},
+            { id: "23", name: "Sutinnarto, S.I.Kom., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
+            { id: "24", name: "Rif'atul Himmah, S.Sos., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
+            { id: "25", name: "Najmi Rizki Khairani, S.Sos., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
+            { id: "26", name: "Lakna Tulas'un, S.Sos., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
+            { id: "27", name: "Bondan Eko Suratno, S.S. M.A", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
+            { id: "28", name: "Reni Nur Arifah, S.E., M.M.", position: "Kaprodi S1 Manajemen", photo: "", isActive: true},
+            { id: "29", name: "Yetty Yuliany K, S.E., M.M.", position: "Dosen S1 Manajemen", photo: "", isActive: true},
+            { id: "30", name: "Randika Shafly Fawwas, S.M., M.M.", position: "Dosen S1 Manajemen", photo: "", isActive: true},
+            { id: "31", name: "Putri Aryo Jelang Fitri Khothimah, S.E., M.M.", position: "Dosen S1 Manajemen", photo: "", isActive: true},
+            { id: "32", name: "Anindya Putri Utami, S.M., M.M", position: "Dosen S1 Manajemen", photo: "", isActive: true},
+            { id: "33", name: "Eva Fachria, S.E., M.S.M", position: "Dosen S1 Manajemen", photo: "", isActive: true},
+            { id: "34", name: "Dr. Agus Fahrurrozy Abdillah, ST., MBA", position: "Dosen S1 Manajemen", photo: "", isActive: true},
+            { id: "35", name: "Nadya Audina NS. S.Si., M.Biomed", position: "Kaprodi S1 Biomedis", photo: "", isActive: true},
+            { id: "36", name: "Mohammad Ariq Nazar, S.Si, M.Biomed", position: "Dosen S1 Biomedis", photo: "", isActive: true},
+            { id: "37", name: "Dian Respati Ayu, S.Si., M.Biomed", position: "Dosen S1 Biomedis", photo: "", isActive: true},
+            { id: "38", name: "Risky Chandra Satria Irawan S.Si, M.Biomed", position: "Dosen S1 Biomedis", photo: "", isActive: true},
+            { id: "39", name: "Naufal Sebastian Anggoro, S.Si., M.Si", position: "Dosen S1 Biomedis", photo: "", isActive: true},
+            { id: "40", name: "Dendi Krisna Nugraha, S.Si., M.Sc., PhD.", position: "Dosen S1 Biomedis", photo: "", isActive: true},
+            { id: "41", name: "Endah Agustina Lestari, S.Si., M.Mol.Biol", position: "Dosen S1 Biomedis", photo: "", isActive: true},
+            { id: "42", name: "Fauziah Novita Putri Rifai, S.Si., M.Biotech", position: "Kaprodi S1 Bioteknologi", photo: "", isActive: true},
+            { id: "43", name: "Iffan Alif, S.Si, M.Biotech", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
+            { id: "44", name: "Nurul Hidayah S.Si, M.Biotech", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
+            { id: "45", name: "Salindri Prawitasari, S.Si, M.Biotech", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
+            { id: "46", name: "Waheni Rizky Aprilia, Ph.D.", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
+            { id: "47", name: "Ahmed Faheem Khan, Ph.D.", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
+            { id: "48", name: "Labbra Pasaribu, S.M", position: "Tendik", photo: "", isActive: true},
+            { id: "49", name: "Alvin Syaptia Pratama, S.I.Kom", position: "Tendik", photo: "", isActive: true},
+            { id: "50", name: "Daffa Restu Fadhillah, S.Kom", position: "Tendik", photo: "", isActive: true},
+            { id: "51", name: "Claudea Winandyaz Rakasiwi, S.Pd., m.Pd", position: "Tendik", photo: "", isActive: true},
+            { id: "52", name: "Alya Namira Ikfinasulkha, S.I.P", position: "Tendik", photo: "", isActive: true},
+            { id: "53", name: "Alya Pramesty, S.Si", position: "Tendik", photo: "", isActive: true},
+            { id: "54", name: "Ridha Azzahra, S.Pd", position: "Tendik", photo: "", isActive: true},
+            { id: "55", name: "Dina Haifa Shofwa, A.Md.Keb", position: "Tendik", photo: "", isActive: true},
+            { id: "56", name: "Audre Faniaputri Maulida, S.Pd", position: "Tendik", photo: "", isActive: true},
+            { id: "57", name: "Firda Rismadhani, S.M", position: "Tendik", photo: "", isActive: true},
+            { id: "58", name: "Panji Agung Pidekso, S.Hum", position: "Tendik", photo: "", isActive: true},
+            { id: "59", name: "Rudi Hermawan, S.Kom", position: "Tendik", photo: "", isActive: true},
+            { id: "60", name: "Rifky Ariya Pratama, S.Kom", position: "Tendik", photo: "", isActive: true}
         ];
 
         const APP_DATA = {
@@ -115,12 +112,13 @@
             { grade: 'D', min: 0, max: 170, label: 'Buruk', color: 'bg-rose-500', text: 'text-rose-700' }
         ];
 
+        let EMPLOYEE_DB = [];
         let currentScores = {};
         let selectedEmployee = null;
         let isAdminAuthenticated = false;
         let totalCriteria = APP_DATA.sections.reduce((acc, s) => acc + s.items.length, 0);
         let allHistoryData = [];
-        let pinAction = null; // Aksi yang akan dijalankan setelah PIN benar
+        let pinAction = null;
 
         window.toggleView = (view, bypassAuth = false) => {
             if (view === 'history' && !isAdminAuthenticated && !bypassAuth) {
@@ -169,7 +167,6 @@
             refreshProfileCard();
             updateUIState();
             
-            // Cek keaktifan karyawan untuk mengunci form
             const canFill = selectedEmployee && selectedEmployee.isActive;
             const inactiveWarning = document.getElementById('inactive-warning');
             
@@ -207,7 +204,7 @@
                 }
 
                 if (selectedEmployee.photo) {
-                    imgContainer.innerHTML = `<img src="${selectedEmployee.photo}" class="w-full h-full object-cover rounded-3xl">`;
+                    imgContainer.innerHTML = `<img src="${selectedEmployee.photo}" class="w-full h-full object-cover rounded-3xl" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(selectedEmployee.name)}&background=random'">`;
                     placeholder.classList.add('hidden');
                 } else {
                     imgContainer.innerHTML = '';
@@ -234,24 +231,28 @@
             document.getElementById('edit-modal').classList.remove('hidden');
         };
 
-        window.saveEmployeeData = () => {
+        window.saveEmployeeData = async () => {
             const newName = document.getElementById('edit-emp-name').value;
             const newPos = document.getElementById('edit-emp-pos').value;
             const newPhoto = document.getElementById('edit-emp-photo').value;
             const newStatus = document.getElementById('edit-emp-status').value === "true";
 
-            const index = EMPLOYEE_DB.findIndex(emp => emp.id === selectedEmployee.id);
-            EMPLOYEE_DB[index] = { ...selectedEmployee, name: newName, position: newPos, photo: newPhoto, isActive: newStatus };
-            selectedEmployee = EMPLOYEE_DB[index];
-            
-            // Trigger ulang seleksi untuk update kunci form
-            const mockEvent = { target: { value: selectedEmployee.id } };
-            window.handleEmployeeSelect(mockEvent);
+            try {
+                // Simpan perubahan ke Firestore secara permanen
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'employees', selectedEmployee.id), {
+                    id: selectedEmployee.id,
+                    name: newName,
+                    position: newPos,
+                    photo: newPhoto,
+                    isActive: newStatus
+                });
 
-            updateEmployeeDropdown();
-            refreshProfileCard();
-            document.getElementById('edit-modal').classList.add('hidden');
-            showToast("Data Karyawan Diperbarui");
+                document.getElementById('edit-modal').classList.add('hidden');
+                showToast("Data Karyawan Tersimpan Permanen");
+            } catch (err) {
+                console.error(err);
+                showToast("Gagal menyimpan perubahan", "error");
+            }
         };
 
         window.verifyPin = () => {
@@ -261,12 +262,7 @@
                 document.getElementById('pin-modal').classList.add('hidden');
                 updateUIState();
                 showToast("Akses Admin Terverifikasi");
-                
-                // Jalankan aksi yang tertunda
-                if (pinAction) {
-                    pinAction();
-                    pinAction = null;
-                }
+                if (pinAction) { pinAction(); pinAction = null; }
             } else {
                 showToast("PIN Salah!", "error");
             }
@@ -287,19 +283,12 @@
 
         window.handleSave = async () => {
             const filledCount = Object.keys(currentScores).length;
-            
             if (!selectedEmployee || !selectedEmployee.isActive) {
                 showToast("Karyawan Tidak Aktif. Tidak dapat menyimpan.", "error");
                 return;
             }
-
             if (filledCount < totalCriteria) {
                 document.getElementById('alert-modal').classList.remove('hidden');
-                return;
-            }
-            if (!auth.currentUser) {
-                showToast("Kesalahan Autentikasi. Mencoba login kembali...", "error");
-                await initAuth();
                 return;
             }
             const saveBtn = document.getElementById('save-btn');
@@ -317,16 +306,11 @@
                     quality: gradeInfo.label,
                     createdAt: Date.now()
                 });
-                
                 showToast("Berhasil Disimpan!", "success");
                 window.resetForm();
-                
-                // Fitur Scroll otomatis ke atas setelah berhasil simpan
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-                
             } catch (err) { 
                 showToast("Tidak Berhasil Disimpan", "error"); 
-                console.error(err);
             } finally { 
                 saveBtn.disabled = false; 
                 saveBtn.innerHTML = 'Simpan'; 
@@ -351,10 +335,7 @@
         };
 
         window.handleDelete = async (id) => {
-            if (!isAdminAuthenticated) {
-                showToast("Akses Ditolak!", "error");
-                return;
-            }
+            if (!isAdminAuthenticated) return;
             if(confirm("Hapus data ini?")) {
                 try {
                     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'assessments', id));
@@ -373,6 +354,7 @@
             return Math.round((rawSum / (totalCriteria * 4)) * 680);
         };
         const getGradeInfo = (score) => GRADING.find(g => score >= g.min && score <= g.max) || GRADING[3];
+        
         const updateSummary = () => {
             const score = calculateScore();
             const gradeInfo = getGradeInfo(score);
@@ -382,13 +364,12 @@
             const filledCount = Object.keys(currentScores).length;
             document.getElementById('progress-bar').style.width = `${(filledCount / totalCriteria) * 100}%`;
             document.getElementById('progress-text').innerText = `${filledCount} / ${totalCriteria} Kriteria`;
-            
             const saveBtn = document.getElementById('save-btn');
             const canSave = selectedEmployee && selectedEmployee.isActive && filledCount >= totalCriteria;
-            
             if(!canSave) saveBtn.classList.add('opacity-50');
             else saveBtn.classList.remove('opacity-50');
         };
+
         const showToast = (msg, type = "success") => {
             const toast = document.getElementById('toast');
             toast.innerText = msg;
@@ -397,7 +378,6 @@
             setTimeout(() => toast.classList.add('hidden'), 3000);
         };
 
-        // Fungsi baru untuk memperbarui isi Dropdown Karyawan dengan pengelompokan prodi
         const updateEmployeeDropdown = () => {
             const empSelect = document.getElementById('emp-select');
             const currentValue = empSelect.value;
@@ -406,7 +386,6 @@
             const namesInHistory = allHistoryData.map(h => h.employeeName);
             const availableEmployees = EMPLOYEE_DB.filter(emp => !namesInHistory.includes(emp.name));
 
-            // Daftar Prodi untuk pengelompokan
             const prodiGroups = [
                 { label: "S1 Kebidanan", keyword: "S1 Kebidanan" },
                 { label: "Profesi Bidan", keyword: "Profesi Bidan" },
@@ -420,22 +399,16 @@
             ];
 
             prodiGroups.forEach(group => {
-                // Menambahkan pengecekan keamanan (emp.position || "") agar tidak error jika data kosong
                 const groupEmployees = availableEmployees.filter(emp => (emp.position || "").includes(group.keyword));
-                
                 if (groupEmployees.length > 0) {
                     const optGroup = document.createElement('optgroup');
                     optGroup.label = `-- ${group.label} --`;
-                    
                     groupEmployees.forEach(emp => {
                         const opt = document.createElement('option');
                         opt.value = emp.id;
-                        opt.innerText = emp.name;
-                        // Tambahkan indikator (Tidak Aktif) pada dropdown jika statusnya non-aktif
-                        if (!emp.isActive) opt.innerText += " (Tidak Aktif)";
+                        opt.innerText = emp.name + (!emp.isActive ? " (Tidak Aktif)" : "");
                         optGroup.appendChild(opt);
                     });
-                    
                     empSelect.appendChild(optGroup);
                 }
             });
@@ -470,62 +443,58 @@
             lucide.createIcons();
         };
 
-        window.applyHistoryFilter = () => {
-            const monthFilter = document.getElementById('filter-month').value;
-            const yearFilter = document.getElementById('filter-year').value;
-            const filtered = allHistoryData.filter(item => {
-                const [month, year] = item.period.split(' ');
-                return (monthFilter === "" || month.toLowerCase() === monthFilter.toLowerCase()) && (yearFilter === "" || year === yearFilter);
-            });
-            renderHistoryTable(filtered);
-        };
-
-        const renderHistoryTable = (data) => {
-            const tbody = document.getElementById('history-body');
-            tbody.innerHTML = data.length ? data.map(item => `
-                <tr class="hover:bg-slate-50 border-b border-slate-100">
-                    <td class="px-6 py-4"><p class="font-bold text-slate-800">${item.employeeName}</p><p class="text-xs text-slate-400">${item.position}</p></td>
-                    <td class="px-6 py-4 text-slate-600">${item.period}</td>
-                    <td class="px-6 py-4"><span class="px-2 py-1 rounded text-white font-bold text-xs ${getGradeInfo(item.score).color}">${item.grade}</span> <span class="font-bold ml-2">${item.score}</span></td>
-                    <td class="px-6 py-4 text-center">
-                        <button onclick="window.handleDelete('${item.id}')" class="text-slate-300 hover:text-rose-500">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                        </button>
-                    </td>
-                </tr>
-            `).join('') : '<tr><td colspan="4" class="px-6 py-20 text-center text-slate-400 italic">Data tidak ditemukan.</td></tr>';
-            lucide.createIcons();
-        };
-
-        const initAuth = async () => {
-            if (!auth) return;
-            try {
-                if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token) {
-                    await signInWithCustomToken(auth, window.__initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) {
-                console.error("Auth init error:", err);
+        // Inisialisasi data karyawan dari database
+        const initEmployees = async () => {
+            const empCol = collection(db, 'artifacts', appId, 'public', 'data', 'employees');
+            const snapshot = await getDocs(empCol);
+            
+            if (snapshot.empty) {
+                // Jika database kosong, masukkan data awal
+                const batch = writeBatch(db);
+                INITIAL_EMPLOYEES.forEach(emp => {
+                    const d = doc(db, 'artifacts', appId, 'public', 'data', 'employees', emp.id);
+                    batch.set(d, emp);
+                });
+                await batch.commit();
             }
+
+            // Dapatkan data secara real-time
+            onSnapshot(empCol, (snap) => {
+                EMPLOYEE_DB = snap.docs.map(d => d.data());
+                updateEmployeeDropdown();
+                if (selectedEmployee) {
+                    selectedEmployee = EMPLOYEE_DB.find(e => e.id === selectedEmployee.id);
+                    refreshProfileCard();
+                }
+            });
         };
 
         const init = async () => {
             if (!auth) return;
-            await initAuth();
-
-            onAuthStateChanged(auth, (user) => {
+            await signInAnonymously(auth);
+            onAuthStateChanged(auth, async (user) => {
                 if (user) {
+                    await initEmployees();
                     const q = collection(db, 'artifacts', appId, 'public', 'data', 'assessments');
                     onSnapshot(q, (snapshot) => {
                         allHistoryData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt);
-                        applyHistoryFilter();
-                        updateEmployeeDropdown(); 
-                    }, (error) => {
-                        console.error("Firestore Snapshot Error:", error);
-                        if (error.code === 'permission-denied') {
-                            initAuth();
-                        }
+                        const monthFilter = document.getElementById('filter-month').value;
+                        const yearFilter = document.getElementById('filter-year').value;
+                        const filtered = allHistoryData.filter(item => {
+                            const [month, year] = item.period.split(' ');
+                            return (monthFilter === "" || month.toLowerCase() === monthFilter.toLowerCase()) && (yearFilter === "" || year === yearFilter);
+                        });
+                        const tbody = document.getElementById('history-body');
+                        tbody.innerHTML = filtered.length ? filtered.map(item => `
+                            <tr class="hover:bg-slate-50 border-b border-slate-100">
+                                <td class="px-6 py-4"><p class="font-bold text-slate-800">${item.employeeName}</p><p class="text-xs text-slate-400">${item.position}</p></td>
+                                <td class="px-6 py-4 text-slate-600">${item.period}</td>
+                                <td class="px-6 py-4"><span class="px-2 py-1 rounded text-white font-bold text-xs ${getGradeInfo(item.score).color}">${item.grade}</span> <span class="font-bold ml-2">${item.score}</span></td>
+                                <td class="px-6 py-4 text-center"><button onclick="window.handleDelete('${item.id}')" class="text-slate-300 hover:text-rose-500"><i data-lucide="trash-2" class="w-5 h-5"></i></button></td>
+                            </tr>
+                        `).join('') : '<tr><td colspan="4" class="px-6 py-20 text-center text-slate-400 italic">Data tidak ditemukan.</td></tr>';
+                        lucide.createIcons();
+                        updateEmployeeDropdown();
                     });
                 }
             });
@@ -535,26 +504,20 @@
             document.getElementById('period-display').innerText = getPreviousMonthString();
             renderForm();
             init();
-            lucide.createIcons();
         };
     </script>
 </head>
 <body class="bg-slate-50 font-sans text-slate-900 min-h-screen">
     <div id="toast" class="hidden"></div>
     <div class="max-w-5xl mx-auto p-4 md:p-8 space-y-6">
-        
         <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <div class="bg-indigo-600 p-2 rounded-lg text-white"><i data-lucide="clipboard-check" class="w-6 h-6"></i></div>
                 <h1 class="font-bold text-xl hidden sm:block tracking-tight text-slate-800">SDM APU</h1>
             </div>
             <div class="flex bg-slate-100 p-1 rounded-xl">
-                <button id="nav-form" onclick="toggleView('form')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all bg-white text-indigo-600 shadow-sm">
-                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Form
-                </button>
-                <button id="nav-history" onclick="toggleView('history')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all text-slate-500">
-                    <i data-lucide="history" class="w-4 h-4"></i> Riwayat <span id="lock-icon"><i data-lucide="lock" class="w-3 h-3"></i></span>
-                </button>
+                <button id="nav-form" onclick="toggleView('form')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all bg-white text-indigo-600 shadow-sm">Form</button>
+                <button id="nav-history" onclick="toggleView('history')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all text-slate-500">Riwayat <span id="lock-icon"></span></button>
             </div>
         </div>
 
@@ -565,33 +528,23 @@
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Periode</label><div id="period-display" class="py-1 border-b border-slate-100 text-indigo-600 font-bold h-8">-</div></div>
             </div>
 
-            <div id="inactive-warning" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-6 flex items-center gap-3 text-rose-600 animate-pulse">
+            <div id="inactive-warning" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-6 flex items-center gap-3 text-rose-600">
                 <i data-lucide="alert-circle" class="w-5 h-5"></i>
                 <p class="text-sm font-bold tracking-tight">Karyawan ini berstatus tidak aktif. Penilaian tidak dapat dilakukan.</p>
             </div>
 
-            <div id="employee-profile-card" class="hidden bg-white rounded-3xl p-8 shadow-sm border border-slate-200 mb-6 relative overflow-hidden group tracking-tight">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 rounded-bl-full -mr-16 -mt-16 transition-transform group-hover:scale-110 duration-700"></div>
-                
+            <div id="employee-profile-card" class="hidden bg-white rounded-3xl p-8 shadow-sm border border-slate-200 mb-6 relative overflow-hidden tracking-tight">
                 <div class="flex flex-col sm:flex-row items-center gap-8 relative z-10">
                     <div class="w-24 h-24 sm:w-28 sm:h-28 bg-slate-100 rounded-3xl flex items-center justify-center text-slate-400 border-4 border-white shadow-xl overflow-hidden relative flex-shrink-0" id="prof-img-container"></div>
-                    <div id="prof-placeholder" class="hidden absolute left-4 top-4 sm:left-10 sm:top-10 pointer-events-none">
-                        <i data-lucide="user" class="w-12 h-12 text-slate-300"></i>
-                    </div>
-
+                    <div id="prof-placeholder" class="hidden absolute left-4 top-4 sm:left-10 sm:top-10"><i data-lucide="user" class="w-12 h-12 text-slate-300"></i></div>
                     <div class="text-center sm:text-left">
                         <h2 class="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight mb-2" id="prof-name">-</h2>
                         <div class="flex flex-wrap justify-center sm:justify-start gap-3">
-                            <span class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-slate-100 text-slate-600 rounded-full text-sm font-bold">
-                                <i data-lucide="briefcase" class="w-4 h-4"></i> <span id="prof-pos">-</span>
-                            </span>
+                            <span class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-slate-100 text-slate-600 rounded-full text-sm font-bold"><i data-lucide="briefcase" class="w-4 h-4"></i> <span id="prof-pos">-</span></span>
                             <span id="status-badge"></span>
                         </div>
                     </div>
-
-                    <button id="admin-edit-btn" onclick="openEditModal()" class="hidden sm:flex ml-auto p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all duration-300 shadow-sm">
-                        <i data-lucide="edit-3" class="w-6 h-6"></i>
-                    </button>
+                    <button id="admin-edit-btn" onclick="openEditModal()" class="hidden sm:flex ml-auto p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm"><i data-lucide="edit-3" class="w-6 h-6"></i></button>
                 </div>
             </div>
 
@@ -605,7 +558,7 @@
                 </div>
                 <div class="flex gap-3 w-full md:w-auto">
                     <button onclick="resetForm()" class="flex-1 md:flex-none px-6 py-3 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50">Batal</button>
-                    <button id="save-btn" onclick="handleSave()" class="flex-1 md:flex-none px-8 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg transition-opacity duration-300">Simpan</button>
+                    <button id="save-btn" onclick="handleSave()" class="flex-1 md:flex-none px-8 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg">Simpan</button>
                 </div>
             </div>
         </div>
@@ -613,79 +566,45 @@
         <div id="history-view" class="hidden">
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]">
                 <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50">
-                    <h2 class="text-xl font-bold flex items-center gap-2"><i data-lucide="history" class="text-indigo-600"></i> Riwayat</h2>
+                    <h2 class="text-xl font-bold flex items-center gap-2">Riwayat</h2>
                     <div class="flex flex-wrap items-center gap-2">
-                        <select id="filter-month" onchange="applyHistoryFilter()" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium outline-none">
-                            <option value="">Semua Bulan</option>
-                            <option value="Januari">Januari</option><option value="Februari">Februari</option><option value="Maret">Maret</option>
-                            <option value="April">April</option><option value="Mei">Mei</option><option value="Juni">Juni</option>
-                            <option value="Juli">Juli</option><option value="Agustus">Agustus</option><option value="September">September</option>
-                            <option value="Oktober">Oktober</option><option value="November">November</option><option value="Desember">Desember</option>
-                        </select>
-                        <select id="filter-year" onchange="applyHistoryFilter()" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium outline-none">
-                            <option value="">Semua Tahun</option>
-                            <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
-                        </select>
-                        <button onclick="handleAdminLogout()" class="text-xs font-bold text-rose-500 hover:underline sm:ml-2">Logout Admin</button>
+                        <select id="filter-month" onchange="updateEmployeeDropdown()" class="bg-white border rounded-lg px-3 py-1.5 text-sm outline-none"><option value="">Semua Bulan</option><option value="Januari">Januari</option><option value="Februari">Februari</option><option value="Maret">Maret</option><option value="April">April</option><option value="Mei">Mei</option><option value="Juni">Juni</option><option value="Juli">Juli</option><option value="Agustus">Agustus</option><option value="September">September</option><option value="Oktober">Oktober</option><option value="November">November</option><option value="Desember">Desember</option></select>
+                        <select id="filter-year" onchange="updateEmployeeDropdown()" class="bg-white border rounded-lg px-3 py-1.5 text-sm outline-none"><option value="">Semua Tahun</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option></select>
+                        <button onclick="handleAdminLogout()" class="text-xs font-bold text-rose-500 hover:underline">Logout Admin</button>
                     </div>
                 </div>
-                <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead class="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-wider"><tr><th class="px-6 py-4">Karyawan</th><th class="px-6 py-4">Periode</th><th class="px-6 py-4">Hasil</th><th class="px-6 py-4 text-center">Aksi</th></tr></thead><tbody id="history-body"></tbody></table></div>
+                <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead class="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold"><tr><th class="px-6 py-4">Karyawan</th><th class="px-6 py-4">Periode</th><th class="px-6 py-4">Hasil</th><th class="px-6 py-4 text-center">Aksi</th></tr></thead><tbody id="history-body"></tbody></table></div>
             </div>
         </div>
     </div>
 
     <div id="pin-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 hidden">
         <div class="bg-white rounded-3xl p-8 max-sm w-full shadow-2xl text-center space-y-4">
-            <div class="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-indigo-600"><i data-lucide="lock" class="w-8 h-8"></i></div>
             <h3 class="text-xl font-bold">Akses Admin</h3>
-            <p class="text-xs text-slate-400">Masukkan PIN untuk mengedit data karyawan atau melihat riwayat.</p>
-            <input type="password" id="pin-input" class="w-full border-2 border-slate-100 rounded-2xl px-4 py-4 text-center text-2xl tracking-[1em] focus:border-indigo-500 outline-none" placeholder="••••" maxlength="4">
-            <div class="flex gap-3"><button onclick="document.getElementById('pin-modal').classList.add('hidden')" class="flex-1 py-4 font-bold text-slate-400">Batal</button><button onclick="verifyPin()" class="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg">Masuk</button></div>
+            <input type="password" id="pin-input" class="w-full border-2 rounded-2xl px-4 py-4 text-center text-2xl tracking-[1em] outline-none" placeholder="••••" maxlength="4">
+            <div class="flex gap-3"><button onclick="document.getElementById('pin-modal').classList.add('hidden')" class="flex-1 py-4 font-bold text-slate-400">Batal</button><button onclick="verifyPin()" class="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold">Masuk</button></div>
         </div>
     </div>
 
     <div id="edit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4 hidden">
         <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-4">
-            <div class="flex items-center gap-3 mb-2">
-                <div class="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><i data-lucide="user-cog" class="w-6 h-6"></i></div>
-                <h3 class="text-xl font-bold">Edit Profile Karyawan</h3>
+            <h3 class="text-xl font-bold">Edit Profile Karyawan</h3>
+            <div class="space-y-4 text-left">
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase">Nama Lengkap</label><input type="text" id="edit-emp-name" class="w-full border rounded-xl px-4 py-3 outline-none focus:border-indigo-500"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase">Jabatan</label><input type="text" id="edit-emp-pos" class="w-full border rounded-xl px-4 py-3 outline-none focus:border-indigo-500"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase">Status Keaktifan</label><select id="edit-emp-status" class="w-full border rounded-xl px-4 py-3 outline-none"><option value="true">Aktif</option><option value="false">Tidak Aktif</option></select></div>
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase">URL Foto (Opsional)</label><input type="text" id="edit-emp-photo" class="w-full border rounded-xl px-4 py-3 outline-none focus:border-indigo-500"></div>
             </div>
-            <div class="space-y-4">
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nama Lengkap</label>
-                    <input type="text" id="edit-emp-name" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Jabatan</label>
-                    <input type="text" id="edit-emp-pos" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status Keaktifan</label>
-                    <select id="edit-emp-status" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:border-indigo-500 font-bold">
-                        <option value="true">Aktif</option>
-                        <option value="false">Tidak Aktif</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">URL Foto (Opsional)</label>
-                    <input type="text" id="edit-emp-photo" placeholder="https://link-foto.com/gambar.jpg" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:border-indigo-500">
-                </div>
-            </div>
-            <div class="flex gap-3 pt-4">
-                <button onclick="document.getElementById('edit-modal').classList.add('hidden')" class="flex-1 py-3 font-bold text-slate-400">Batal</button>
-                <button onclick="saveEmployeeData()" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg">Simpan Perubahan</button>
-            </div>
+            <div class="flex gap-3 pt-4"><button onclick="document.getElementById('edit-modal').classList.add('hidden')" class="flex-1 py-3 font-bold text-slate-400">Batal</button><button onclick="saveEmployeeData()" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold">Simpan</button></div>
         </div>
     </div>
 
     <div id="alert-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 hidden">
         <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-4">
-            <div class="bg-amber-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-amber-600"><i data-lucide="alert-triangle" class="w-8 h-8"></i></div>
             <h3 class="text-xl font-bold text-slate-800">Belum Lengkap!</h3>
             <p class="text-slate-500">Lengkapi seluruh 31 kriteria penilaian sebelum menyimpan data.</p>
             <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold">Siap!</button>
         </div>
     </div>
-
 </body>
 </html>
