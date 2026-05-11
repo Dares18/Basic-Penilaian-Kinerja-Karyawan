@@ -29,7 +29,17 @@
         } catch (e) { console.error("Firebase Init Error", e); }
 
         const appId = 'performance-appraisal-001';
-        const ADMIN_PIN = "1234";
+        
+        const ROLES = {
+            '1234': { id: 'super_admin', label: 'Super Admin', canDelete: true, canEditProfile: true, restrictedEmployees: null },
+            '0987': { id: 'admin', label: 'Admin', canDelete: false, canEditProfile: true, restrictedEmployees: null },
+            '1111': { id: 'rektor', label: 'Rektor - Prof. Dr. Denny Nugroho Sugianto', canDelete: false, canEditProfile: false, restrictedEmployees: null },
+            '1112': { id: 'wakil_rektor1', label: 'Wakil Rektor I - Mohammad Ariq Nazar, S.Si, M.Biomed', canDelete: false, canEditProfile: false, restrictedEmployees: ['31', '25', '58'] },
+            '1113': { id: 'wakil_rektor2', label: 'Wakil Rektor II - Waheni Rizky Aprilia, Ph.D.', canDelete: false, canEditProfile: false, restrictedEmployees: ['52', '53', '56', '57'] },
+            '1114': { id: 'wakil_rektor3', label: 'Wakil Rektor III - Prof. Diana', canDelete: false, canEditProfile: false, restrictedEmployees: ['48', '49', '50', '51'] },
+            '1115': { id: 'wakil_rektor4', label: 'Wakil Rektor IV - Prof. Yayuk Astuti, S.Si, Ph.D', canDelete: false, canEditProfile: false, restrictedEmployees: ['1', '16', '22', '35', '42'] },
+            '1116': { id: 'bak', label: 'BAK - Putri Aryo Jelang Fitri Khothimah, S.E., M.M.', canDelete: false, canEditProfile: false, restrictedEmployees: ['50', '54', '59'] }
+        };
 
         const INITIAL_EMPLOYEES = [
             { id: "1", name: "Rizqitha, S.Tr.Keb., M.Tr.Keb", position: "Kaprodi S1 Kebidanan", photo: "", isActive: true },
@@ -114,20 +124,16 @@
         let EMPLOYEE_DB = [];
         let currentScores = {};
         let selectedEmployee = null;
-        let isAdminAuthenticated = false;
+        let currentUserRole = null; 
         let totalCriteria = APP_DATA.sections.reduce((acc, s) => acc + s.items.length, 0);
         let allHistoryData = [];
-        let pinAction = null;
 
-        window.toggleView = (view, bypassAuth = false) => {
-            if (view === 'history' && !isAdminAuthenticated && !bypassAuth) {
-                pinAction = () => window.toggleView('history', true);
-                document.getElementById('pin-modal').classList.remove('hidden');
-                return;
-            }
+        window.toggleView = (view) => {
+            document.getElementById('login-view').classList.add('hidden');
             document.getElementById('form-view').classList.toggle('hidden', view !== 'form');
             document.getElementById('history-view').classList.toggle('hidden', view !== 'history');
             updateUIState();
+            if (view === 'history') renderHistoryTable();
         };
 
         const updateUIState = () => {
@@ -138,27 +144,72 @@
             navForm.className = `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${isForm ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`;
             navHist.className = `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${!isForm ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`;
             
-            const editBtn = document.getElementById('admin-edit-btn');
-            if(selectedEmployee) {
-                editBtn.classList.remove('hidden');
-            } else {
-                editBtn.classList.add('hidden');
-            }
+            navHist.classList.remove('hidden');
 
-            const lockIcon = document.getElementById('lock-icon');
-            if (isAdminAuthenticated) {
-                lockIcon.innerHTML = '<i data-lucide="unlock" class="w-3 h-3 text-emerald-500"></i>';
+            const editBtn = document.getElementById('admin-edit-btn');
+            if(selectedEmployee && currentUserRole?.canEditProfile) {
+                editBtn.style.setProperty('display', 'flex', 'important');
             } else {
-                lockIcon.innerHTML = '<i data-lucide="lock" class="w-3 h-3"></i>';
+                editBtn.style.setProperty('display', 'none', 'important');
             }
             lucide.createIcons();
         };
 
-        window.handleAdminLogout = () => {
-            isAdminAuthenticated = false;
-            showToast("Admin Logout Berhasil", "success");
-            window.toggleView('form'); 
-            updateUIState(); 
+        window.handleLogin = () => {
+            const pinInput = document.getElementById('login-pin');
+            const pin = pinInput.value;
+            const role = ROLES[pin];
+            
+            if (role) {
+                const overlay = document.getElementById('loading-overlay');
+                const overlayText = overlay.querySelector('p');
+                overlayText.innerText = "Menyiapkan Dashboard";
+                
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+
+                // Dipercepat menjadi 600ms untuk login agar terasa responsif
+                setTimeout(() => {
+                    currentUserRole = role;
+                    document.getElementById('login-view').classList.add('hidden');
+                    document.getElementById('app-content').classList.remove('hidden');
+                    document.getElementById('user-badge').innerText = role.label;
+                    window.toggleView('form');
+                    updateEmployeeDropdown();
+                    renderHistoryTable(); 
+                    
+                    overlay.classList.add('opacity-0');
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                        showToast(`Selamat Datang, ${role.label}`);
+                    }, 300); // Overlay pudar lebih cepat
+                }, 600); 
+            } else {
+                showToast("PIN Salah!", "error");
+            }
+            pinInput.value = '';
+        };
+
+        window.handleLogout = () => {
+            const overlay = document.getElementById('loading-overlay');
+            const overlayText = overlay.querySelector('p');
+            overlayText.innerText = "Keluar dari Sistem...";
+            
+            overlay.classList.remove('hidden');
+            setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+
+            // Dipercepat menjadi 500ms untuk logout
+            setTimeout(() => {
+                currentUserRole = null;
+                document.getElementById('app-content').classList.add('hidden');
+                document.getElementById('login-view').classList.remove('hidden');
+                resetForm();
+                
+                overlay.classList.add('opacity-0');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                }, 300);
+            }, 500);
         };
 
         window.handleEmployeeSelect = (e) => {
@@ -177,8 +228,10 @@
 
             document.querySelectorAll('.score-btn').forEach(btn => {
                 btn.disabled = !canFill;
-                btn.style.opacity = canFill ? '1' : '0.3';
+                btn.classList.toggle('opacity-30', !canFill);
+                btn.classList.toggle('cursor-not-allowed', !canFill);
             });
+            
             updateSummary();
         };
 
@@ -217,15 +270,10 @@
         };
 
         window.openEditModal = () => {
-            if (!isAdminAuthenticated) {
-                pinAction = () => window.openEditModal();
-                document.getElementById('pin-modal').classList.remove('hidden');
-                return;
-            }
-            if(!selectedEmployee) return;
+            if(!selectedEmployee || !currentUserRole?.canEditProfile) return;
             document.getElementById('edit-emp-name').value = selectedEmployee.name;
             document.getElementById('edit-emp-pos').value = selectedEmployee.position;
-            document.getElementById('edit-emp-photo').value = selectedEmployee.photo || '';
+            document.getElementById('edit-emp-photo').value = "";
             document.getElementById('edit-emp-status').value = selectedEmployee.isActive ? "true" : "false";
             document.getElementById('edit-modal').classList.remove('hidden');
         };
@@ -233,41 +281,39 @@
         window.saveEmployeeData = async () => {
             const newName = document.getElementById('edit-emp-name').value;
             const newPos = document.getElementById('edit-emp-pos').value;
-            const newPhoto = document.getElementById('edit-emp-photo').value;
+            const fileInput = document.getElementById('edit-emp-photo');
             const newStatus = document.getElementById('edit-emp-status').value === "true";
+
+            let photoData = selectedEmployee.photo || "";
+
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                const filePromise = new Promise((resolve) => {
+                    reader.onload = (e) => resolve(e.target.result);
+                });
+                reader.readAsDataURL(fileInput.files[0]);
+                photoData = await filePromise;
+            }
 
             try {
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'employees', selectedEmployee.id), {
                     id: selectedEmployee.id,
                     name: newName,
                     position: newPos,
-                    photo: newPhoto,
+                    photo: photoData,
                     isActive: newStatus
                 });
 
                 document.getElementById('edit-modal').classList.add('hidden');
                 showToast("Data Karyawan Tersimpan");
             } catch (err) {
-                console.error(err);
                 showToast("Gagal menyimpan perubahan", "error");
             }
         };
 
-        window.verifyPin = () => {
-            const input = document.getElementById('pin-input');
-            if (input.value === ADMIN_PIN) {
-                isAdminAuthenticated = true;
-                document.getElementById('pin-modal').classList.add('hidden');
-                updateUIState();
-                showToast("Akses Admin Terverifikasi");
-                if (pinAction) { pinAction(); pinAction = null; }
-            } else {
-                showToast("PIN Salah!", "error");
-            }
-            input.value = '';
-        };
-
         window.setScore = (sectionId, idx, value) => {
+            if (selectedEmployee && !selectedEmployee.isActive) return; 
+            
             currentScores[`${sectionId}-${idx}`] = value;
             document.querySelectorAll(`[id^="btn-${sectionId}-${idx}-"]`).forEach(btn => {
                 btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm', 'scale-110');
@@ -280,15 +326,17 @@
         };
 
         window.handleSave = async () => {
-            const filledCount = Object.keys(currentScores).length;
             if (!selectedEmployee || !selectedEmployee.isActive) {
-                showToast("Karyawan Tidak Aktif", "error");
+                showToast("Karyawan Tidak Aktif - Simpan Gagal", "error");
                 return;
             }
+
+            const filledCount = Object.keys(currentScores).length;
             if (filledCount < totalCriteria) {
                 document.getElementById('alert-modal').classList.remove('hidden');
                 return;
             }
+
             const saveBtn = document.getElementById('save-btn');
             saveBtn.disabled = true;
             saveBtn.innerText = "Menyimpan...";
@@ -327,13 +375,17 @@
                 btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm', 'scale-110');
                 btn.classList.add('text-slate-400');
                 btn.disabled = true;
+                btn.classList.remove('opacity-30', 'cursor-not-allowed');
             });
             updateSummary();
             updateUIState();
         };
 
         window.handleDelete = async (id) => {
-            if (!isAdminAuthenticated) return;
+            if (!currentUserRole || !currentUserRole.canDelete) {
+                showToast("Anda tidak memiliki izin menghapus", "error");
+                return;
+            }
             if(confirm("Hapus data ini?")) {
                 try {
                     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'assessments', id));
@@ -362,41 +414,43 @@
             const filledCount = Object.keys(currentScores).length;
             document.getElementById('progress-bar').style.width = `${(filledCount / totalCriteria) * 100}%`;
             document.getElementById('progress-text').innerText = `${filledCount} / ${totalCriteria} Kriteria`;
+            
             const saveBtn = document.getElementById('save-btn');
             const canSave = selectedEmployee && selectedEmployee.isActive && filledCount >= totalCriteria;
-            if(!canSave) saveBtn.classList.add('opacity-50');
-            else saveBtn.classList.remove('opacity-50');
+            
+            saveBtn.disabled = !canSave;
+            saveBtn.classList.toggle('opacity-50', !canSave);
+            saveBtn.classList.toggle('cursor-not-allowed', !canSave);
         };
 
         const showToast = (msg, type = "success") => {
             const toast = document.getElementById('toast');
             toast.innerText = msg;
-            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-xl shadow-xl text-white font-bold z-[100] ${type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`;
+            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-xl shadow-xl text-white font-bold z-[600] ${type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`;
             toast.classList.remove('hidden');
             setTimeout(() => toast.classList.add('hidden'), 3000);
         };
 
-        // PERBAIKAN: Fungsi Dropdown Dinamis
         const updateEmployeeDropdown = () => {
+            if (!currentUserRole) return;
             const empSelect = document.getElementById('emp-select');
             const currentValue = empSelect.value;
             empSelect.innerHTML = '<option value="">-- Pilih --</option>';
             
             const namesInHistory = allHistoryData.map(h => h.employeeName);
-            // Filter karyawan yang belum dinilai
-            const availableEmployees = EMPLOYEE_DB.filter(emp => !namesInHistory.includes(emp.name));
+            let availableEmployees = EMPLOYEE_DB.filter(emp => !namesInHistory.includes(emp.name));
+            
+            if (currentUserRole.restrictedEmployees) {
+                availableEmployees = availableEmployees.filter(emp => currentUserRole.restrictedEmployees.includes(emp.id));
+            }
 
-            // Langkah 1: Kumpulkan semua jabatan unik yang ada di database
             const uniquePositions = [...new Set(availableEmployees.map(emp => emp.position || "Lainnya"))].sort();
 
-            // Langkah 2: Render dropdown per Jabatan/Posisi secara otomatis
             uniquePositions.forEach(pos => {
                 const groupEmployees = availableEmployees.filter(emp => emp.position === pos);
                 if (groupEmployees.length > 0) {
                     const optGroup = document.createElement('optgroup');
-                    // Format label prodi/jabatan agar lebih cantik
                     optGroup.label = `-- ${pos} --`;
-                    
                     groupEmployees.forEach(emp => {
                         const opt = document.createElement('option');
                         opt.value = emp.id;
@@ -410,6 +464,42 @@
             if (currentValue && Array.from(empSelect.options).some(o => o.value === currentValue)) {
                 empSelect.value = currentValue;
             }
+        };
+
+        const renderHistoryTable = () => {
+            const monthFilter = document.getElementById('filter-month').value;
+            const yearFilter = document.getElementById('filter-year').value;
+            
+            const filtered = allHistoryData.filter(item => {
+                const [month, year] = item.period.split(' ');
+                const matchDate = (monthFilter === "" || month.toLowerCase() === monthFilter.toLowerCase()) && (yearFilter === "" || year === yearFilter);
+                
+                let matchRestricted = true;
+                if (currentUserRole && currentUserRole.restrictedEmployees) {
+                    const emp = EMPLOYEE_DB.find(e => e.name === item.employeeName);
+                    matchRestricted = emp ? currentUserRole.restrictedEmployees.includes(emp.id) : false;
+                }
+                
+                return matchDate && matchRestricted;
+            }).sort((a, b) => b.createdAt - a.createdAt);
+            
+            const tbody = document.getElementById('history-body');
+            const canDelete = currentUserRole?.canDelete;
+
+            tbody.innerHTML = filtered.length ? filtered.map(item => `
+                <tr class="hover:bg-slate-50 border-b border-slate-100">
+                    <td class="px-6 py-4"><p class="font-bold text-slate-800">${item.employeeName}</p><p class="text-xs text-slate-400">${item.position}</p></td>
+                    <td class="px-6 py-4 text-slate-600">${item.period}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 rounded text-white font-bold text-xs ${getGradeInfo(item.score).color}">${item.grade}</span> <span class="font-bold ml-2">${item.score}</span></td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="window.handleDelete('${item.id}')" 
+                                class="transition-colors ${canDelete ? 'text-slate-300 hover:text-rose-500' : 'text-slate-100 cursor-not-allowed'}">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('') : '<tr><td colspan="4" class="px-6 py-20 text-center text-slate-400 italic">Data tidak ditemukan.</td></tr>';
+            lucide.createIcons();
         };
 
         const renderForm = () => {
@@ -470,24 +560,7 @@
                     onSnapshot(q, (snapshot) => {
                         allHistoryData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                         updateEmployeeDropdown();
-                        
-                        const monthFilter = document.getElementById('filter-month').value;
-                        const yearFilter = document.getElementById('filter-year').value;
-                        const filtered = allHistoryData.filter(item => {
-                            const [month, year] = item.period.split(' ');
-                            return (monthFilter === "" || month.toLowerCase() === monthFilter.toLowerCase()) && (yearFilter === "" || year === yearFilter);
-                        }).sort((a, b) => b.createdAt - a.createdAt);
-                        
-                        const tbody = document.getElementById('history-body');
-                        tbody.innerHTML = filtered.length ? filtered.map(item => `
-                            <tr class="hover:bg-slate-50 border-b border-slate-100">
-                                <td class="px-6 py-4"><p class="font-bold text-slate-800">${item.employeeName}</p><p class="text-xs text-slate-400">${item.position}</p></td>
-                                <td class="px-6 py-4 text-slate-600">${item.period}</td>
-                                <td class="px-6 py-4"><span class="px-2 py-1 rounded text-white font-bold text-xs ${getGradeInfo(item.score).color}">${item.grade}</span> <span class="font-bold ml-2">${item.score}</span></td>
-                                <td class="px-6 py-4 text-center"><button onclick="window.handleDelete('${item.id}')" class="text-slate-300 hover:text-rose-500"><i data-lucide="trash-2" class="w-5 h-5"></i></button></td>
-                            </tr>
-                        `).join('') : '<tr><td colspan="4" class="px-6 py-20 text-center text-slate-400 italic">Data tidak ditemukan.</td></tr>';
-                        lucide.createIcons();
+                        renderHistoryTable();
                     });
                 }
             });
@@ -502,28 +575,66 @@
 </head>
 <body class="bg-slate-50 font-sans text-slate-900 min-h-screen">
     <div id="toast" class="hidden"></div>
-    <div class="max-w-5xl mx-auto p-4 md:p-8 space-y-6">
+
+    <!-- LOADING OVERLAY ANIMATION (Dipercepat menjadi duration-300) -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white/80 backdrop-blur-md z-[500] flex flex-col items-center justify-center transition-all duration-300 hidden opacity-0">
+        <div class="relative">
+            <div class="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-2xl shadow-indigo-200 animate-bounce">
+                <i data-lucide="shield-check" class="w-8 h-8"></i>
+            </div>
+            <div class="absolute inset-0 w-16 h-16 bg-indigo-400 rounded-2xl animate-ping opacity-20"></div>
+        </div>
+        <p class="mt-8 text-xs font-black text-slate-800 tracking-[0.3em] uppercase animate-pulse">Menyiapkan Dashboard</p>
+    </div>
+
+    <!-- LOGIN VIEW -->
+    <div id="login-view" class="fixed inset-0 bg-indigo-600 flex items-center justify-center p-4 z-[300]">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-6">
+            <div class="bg-indigo-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto text-indigo-600 shadow-inner">
+                <i data-lucide="lock" class="w-10 h-10"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-black text-slate-800">SDM APU</h1>
+                <p class="text-slate-400 text-sm mt-1">Masukkan PIN untuk mulai menilai</p>
+            </div>
+            <input type="password" id="login-pin" class="w-full border-2 border-slate-100 rounded-2xl px-4 py-4 text-center text-3xl tracking-[0.5em] outline-none focus:border-indigo-500 transition-all" placeholder="••••" maxlength="4" onkeydown="if(event.key==='Enter') handleLogin()">
+            <button onclick="handleLogin()" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
+                <i data-lucide="log-in" class="w-5 h-5"></i> Masuk
+            </button>
+        </div>
+    </div>
+
+    <!-- APP CONTENT -->
+    <div id="app-content" class="hidden max-w-5xl mx-auto p-4 md:p-8 space-y-6">
         <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <div class="bg-indigo-600 p-2 rounded-lg text-white"><i data-lucide="clipboard-check" class="w-6 h-6"></i></div>
-                <h1 class="font-bold text-xl hidden sm:block tracking-tight text-slate-800">SDM APU</h1>
+                <div>
+                    <h1 class="font-bold text-lg tracking-tight text-slate-800">SDM APU</h1>
+                    <span id="user-badge" class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Role</span>
+                </div>
             </div>
-            <div class="flex bg-slate-100 p-1 rounded-xl">
-                <button id="nav-form" onclick="toggleView('form')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all bg-white text-indigo-600 shadow-sm">Form</button>
-                <button id="nav-history" onclick="toggleView('history')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all text-slate-500">Riwayat <span id="lock-icon"></span></button>
+            <div class="flex items-center gap-4">
+                <div class="flex bg-slate-100 p-1 rounded-xl">
+                    <button id="nav-form" onclick="toggleView('form')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all">Form</button>
+                    <button id="nav-history" onclick="toggleView('history')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all">Riwayat</button>
+                </div>
+                <button onclick="handleLogout()" class="p-2 text-slate-300 hover:text-rose-500 transition-all" title="Logout">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                </button>
             </div>
         </div>
 
         <div id="form-view">
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Karyawan</label><select id="emp-select" onchange="handleEmployeeSelect(event)" class="w-full border-b border-slate-200 py-1 bg-transparent outline-none font-bold text-slate-700"><option value="">-- Pilih --</option></select></div>
-                <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Jabatan</label><div id="emp-position" class="py-1 border-b border-slate-100 text-slate-500 font-medium h-8">-</div></div>
-                <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Periode</label><div id="period-display" class="py-1 border-b border-slate-100 text-indigo-600 font-bold h-8">-</div></div>
+                <div><label class="text-xs font-bold text-slate-400 uppercase tracking-widest">Karyawan</label><select id="emp-select" onchange="handleEmployeeSelect(event)" class="w-full border-b border-slate-200 py-1 bg-transparent outline-none font-bold text-slate-700"><option value="">-- Pilih --</option></select></div>
+                <div><label class="text-xs font-bold text-slate-400 uppercase tracking-widest">Jabatan</label><div id="emp-position" class="py-1 border-b border-slate-100 text-slate-500 font-medium h-8">-</div></div>
+                <div><label class="text-xs font-bold text-slate-400 uppercase tracking-widest">Periode</label><div id="period-display" class="py-1 border-b border-slate-100 text-indigo-600 font-bold h-8">-</div></div>
             </div>
 
             <div id="inactive-warning" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-6 flex items-center gap-3 text-rose-600">
                 <i data-lucide="alert-circle" class="w-5 h-5"></i>
-                <p class="text-sm font-bold tracking-tight">Karyawan ini berstatus tidak aktif.</p>
+                <p class="text-sm font-bold tracking-tight">Karyawan ini berstatus tidak aktif. Penilaian & penyimpanan dikunci.</p>
             </div>
 
             <div id="employee-profile-card" class="hidden bg-white rounded-3xl p-8 shadow-sm border border-slate-200 mb-6 relative overflow-hidden tracking-tight">
@@ -537,7 +648,7 @@
                             <span id="status-badge"></span>
                         </div>
                     </div>
-                    <button id="admin-edit-btn" onclick="openEditModal()" class="hidden sm:flex ml-auto p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm"><i data-lucide="edit-3" class="w-6 h-6"></i></button>
+                    <button id="admin-edit-btn" onclick="openEditModal()" class="ml-auto p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm flex items-center justify-center" style="display: none;"><i data-lucide="edit-3" class="w-6 h-6"></i></button>
                 </div>
             </div>
 
@@ -551,7 +662,7 @@
                 </div>
                 <div class="flex gap-3 w-full md:w-auto">
                     <button onclick="resetForm()" class="flex-1 md:flex-none px-6 py-3 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50">Batal</button>
-                    <button id="save-btn" onclick="handleSave()" class="flex-1 md:flex-none px-8 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg">Simpan</button>
+                    <button id="save-btn" onclick="handleSave()" class="flex-1 md:flex-none px-8 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all">Simpan</button>
                 </div>
             </div>
         </div>
@@ -561,9 +672,8 @@
                 <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50">
                     <h2 class="text-xl font-bold flex items-center gap-2">Riwayat</h2>
                     <div class="flex flex-wrap items-center gap-2">
-                        <select id="filter-month" onchange="updateEmployeeDropdown()" class="bg-white border rounded-lg px-3 py-1.5 text-sm outline-none"><option value="">Semua Bulan</option><option value="Januari">Januari</option><option value="Februari">Februari</option><option value="Maret">Maret</option><option value="April">April</option><option value="Mei">Mei</option><option value="Juni">Juni</option><option value="Juli">Juli</option><option value="Agustus">Agustus</option><option value="September">September</option><option value="Oktober">Oktober</option><option value="November">November</option><option value="Desember">Desember</option></select>
-                        <select id="filter-year" onchange="updateEmployeeDropdown()" class="bg-white border rounded-lg px-3 py-1.5 text-sm outline-none"><option value="">Semua Tahun</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option></select>
-                        <button onclick="handleAdminLogout()" class="text-xs font-bold text-rose-500 hover:underline">Logout Admin</button>
+                        <select id="filter-month" onchange="renderHistoryTable()" class="bg-white border rounded-lg px-3 py-1.5 text-sm outline-none"><option value="">Semua Bulan</option><option value="Januari">Januari</option><option value="Februari">Februari</option><option value="Maret">Maret</option><option value="April">April</option><option value="Mei">Mei</option><option value="Juni">Juni</option><option value="Juli">Juli</option><option value="Agustus">Agustus</option><option value="September">September</option><option value="Oktober">Oktober</option><option value="November">November</option><option value="Desember">Desember</option></select>
+                        <select id="filter-year" onchange="renderHistoryTable()" class="bg-white border rounded-lg px-3 py-1.5 text-sm outline-none"><option value="">Semua Tahun</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option></select>
                     </div>
                 </div>
                 <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead class="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold"><tr><th class="px-6 py-4">Karyawan</th><th class="px-6 py-4">Periode</th><th class="px-6 py-4">Hasil</th><th class="px-6 py-4 text-center">Aksi</th></tr></thead><tbody id="history-body"></tbody></table></div>
@@ -571,14 +681,7 @@
         </div>
     </div>
 
-    <div id="pin-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 hidden">
-        <div class="bg-white rounded-3xl p-8 max-sm w-full shadow-2xl text-center space-y-4">
-            <h3 class="text-xl font-bold">Akses Admin</h3>
-            <input type="password" id="pin-input" class="w-full border-2 rounded-2xl px-4 py-4 text-center text-2xl tracking-[1em] outline-none" placeholder="••••" maxlength="4">
-            <div class="flex gap-3"><button onclick="document.getElementById('pin-modal').classList.add('hidden')" class="flex-1 py-4 font-bold text-slate-400">Batal</button><button onclick="verifyPin()" class="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold">Masuk</button></div>
-        </div>
-    </div>
-
+    <!-- MODAL EDIT -->
     <div id="edit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4 hidden">
         <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-4">
             <h3 class="text-xl font-bold">Edit Profile Karyawan</h3>
@@ -586,12 +689,16 @@
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase">Nama Lengkap</label><input type="text" id="edit-emp-name" class="w-full border rounded-xl px-4 py-3 outline-none focus:border-indigo-500"></div>
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase">Jabatan</label><input type="text" id="edit-emp-pos" class="w-full border rounded-xl px-4 py-3 outline-none focus:border-indigo-500"></div>
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase">Status Keaktifan</label><select id="edit-emp-status" class="w-full border rounded-xl px-4 py-3 outline-none"><option value="true">Aktif</option><option value="false">Tidak Aktif</option></select></div>
-                <div><label class="text-[10px] font-bold text-slate-400 uppercase">URL Foto (Opsional)</label><input type="text" id="edit-emp-photo" class="w-full border rounded-xl px-4 py-3 outline-none focus:border-indigo-500"></div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Upload Foto Profile</label>
+                    <input type="file" id="edit-emp-photo" accept=".jpg,.jpeg,.png" class="w-full border border-dashed border-slate-300 rounded-xl px-4 py-3 bg-slate-50 text-xs font-medium cursor-pointer hover:bg-slate-100">
+                </div>
             </div>
             <div class="flex gap-3 pt-4"><button onclick="document.getElementById('edit-modal').classList.add('hidden')" class="flex-1 py-3 font-bold text-slate-400">Batal</button><button onclick="saveEmployeeData()" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold">Simpan</button></div>
         </div>
     </div>
 
+    <!-- ALERT MODAL -->
     <div id="alert-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 hidden">
         <div class="bg-white rounded-3xl p-8 max-sm w-full shadow-2xl text-center space-y-4">
             <h3 class="text-xl font-bold text-slate-800">Belum Lengkap!</h3>
@@ -599,5 +706,6 @@
             <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold">Siap!</button>
         </div>
     </div>
+
 </body>
 </html>
