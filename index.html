@@ -69,6 +69,7 @@
         let allHistoryData = [];
         let currentEditingEmployee = null;
         let employeeToDelete = null;
+        let assessmentToDelete = null;
         const totalCriteria = APP_DATA.sections.reduce((acc, s) => acc + s.items.length, 0);
 
         const getPreviousMonthString = () => {
@@ -511,9 +512,22 @@
             updateUIState();
         };
 
-        window.handleDeleteAssessment = async (id) => {
+        window.handleDeleteAssessment = (id) => {
             if (!currentUserRole || !currentUserRole.canDelete) return;
-            if(confirm("Hapus data penilaian ini secara permanen?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'assessments', id));
+            assessmentToDelete = id;
+            openModal('delete-assessment-confirm-modal');
+        };
+
+        window.confirmDeleteAssessment = async () => {
+            if (!assessmentToDelete) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'assessments', assessmentToDelete));
+                showToast("Data Penilaian Dihapus");
+                closeModal('delete-assessment-confirm-modal');
+                assessmentToDelete = null;
+            } catch (err) {
+                showToast("Gagal menghapus data", "error");
+            }
         };
 
         const updateEmployeeDropdown = () => {
@@ -789,6 +803,9 @@
     
     <!-- DELETE CONFIRM MODAL -->
     <div id="delete-confirm-modal" class="fixed inset-0 bg-[#1a365d]/40 bg-glass flex items-center justify-center z-[700] p-4 hidden opacity-0 transition-opacity duration-300"><div class="modal-content bg-white rounded-[2.5rem] p-10 max-w-sm w-full shadow-2xl text-center space-y-6 scale-95 opacity-0 translate-y-4"><div class="bg-rose-100 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto text-rose-500"><i data-lucide="trash-2" class="w-8 h-8"></i></div><h3 class="text-xl font-black text-slate-800 tracking-tighter uppercase">Konfirmasi Hapus</h3><p class="text-slate-500 font-medium leading-relaxed text-xs">Hapus data karyawan ini secara permanen? Tindakan ini tidak dapat dibatalkan.</p><div class="flex gap-4 pt-2"><button onclick="closeModal('delete-confirm-modal')" class="flex-1 py-4 font-black text-slate-400 uppercase text-[10px] tracking-widest">Batal</button><button onclick="confirmDeleteEmployee()" class="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black shadow-xl tracking-widest text-[10px] uppercase hover:bg-rose-600 transition-colors">Hapus</button></div></div></div>
+
+    <!-- DELETE ASSESSMENT CONFIRM MODAL -->
+    <div id="delete-assessment-confirm-modal" class="fixed inset-0 bg-[#1a365d]/40 bg-glass flex items-center justify-center z-[700] p-4 hidden opacity-0 transition-opacity duration-300"><div class="modal-content bg-white rounded-[2.5rem] p-10 max-w-sm w-full shadow-2xl text-center space-y-6 scale-95 opacity-0 translate-y-4"><div class="bg-rose-100 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto text-rose-500"><i data-lucide="trash-2" class="w-8 h-8"></i></div><h3 class="text-xl font-black text-slate-800 tracking-tighter uppercase">Konfirmasi Hapus</h3><p class="text-slate-500 font-medium leading-relaxed text-xs">Hapus data penilaian ini secara permanen? Tindakan ini tidak dapat dibatalkan.</p><div class="flex gap-4 pt-2"><button onclick="closeModal('delete-assessment-confirm-modal')" class="flex-1 py-4 font-black text-slate-400 uppercase text-[10px] tracking-widest">Batal</button><button onclick="confirmDeleteAssessment()" class="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black shadow-xl tracking-widest text-[10px] uppercase hover:bg-rose-600 transition-colors">Hapus</button></div></div></div>
 
     <!-- PDF (Off-screen) -->
     <div id="pdf-template">
