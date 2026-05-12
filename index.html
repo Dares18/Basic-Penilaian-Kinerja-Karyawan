@@ -6,9 +6,12 @@
     <title>Sistem Penilaian Kinerja Karyawan - Prodi APU</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    <!-- Library PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, setDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, setDoc, getDocs, writeBatch, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -21,87 +24,25 @@
             measurementId: "G-4CNCMSCHX6"
         };
 
-        let app, auth, db;
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-        } catch (e) { console.error("Firebase Init Error", e); }
-
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
         const appId = 'performance-appraisal-001';
         
         const ROLES = {
-            '1234': { id: 'super_admin', label: 'Super Admin', canDelete: true, canEditProfile: true, restrictedEmployees: null },
-            '0987': { id: 'admin', label: 'Admin', canDelete: false, canEditProfile: true, restrictedEmployees: null },
-            '1111': { id: 'rektor', label: 'Rektor - Prof. Dr. Denny Nugroho Sugianto', canDelete: false, canEditProfile: false, restrictedEmployees: null },
-            '1112': { id: 'wakil_rektor1', label: 'Wakil Rektor I - Mohammad Ariq Nazar, S.Si, M.Biomed', canDelete: false, canEditProfile: false, restrictedEmployees: ['31', '25', '58'] },
-            '1113': { id: 'wakil_rektor2', label: 'Wakil Rektor II - Waheni Rizky Aprilia, Ph.D.', canDelete: false, canEditProfile: false, restrictedEmployees: ['52', '53', '56', '57'] },
-            '1114': { id: 'wakil_rektor3', label: 'Wakil Rektor III - Prof. Diana', canDelete: false, canEditProfile: false, restrictedEmployees: ['48', '49', '50', '51'] },
-            '1115': { id: 'wakil_rektor4', label: 'Wakil Rektor IV - Prof. Yayuk Astuti, S.Si, Ph.D', canDelete: false, canEditProfile: false, restrictedEmployees: ['1', '16', '22', '35', '42'] },
-            '1116': { id: 'bak', label: 'BAK - Putri Aryo Jelang Fitri Khothimah, S.E., M.M.', canDelete: false, canEditProfile: false, restrictedEmployees: ['50', '54', '59'] }
+            '1234': { id: 'super_admin', label: 'Super Admin', canDelete: true, canEditProfile: true, canManage: true, restrictedEmployees: null, canPrint: true },
+            '0987': { id: 'admin', label: 'Admin', canDelete: false, canEditProfile: true, canManage: true, restrictedEmployees: null, canPrint: true },
+            '1111': { id: 'rektor', label: 'Prof. Dr. Denny Nugroho Sugianto', canDelete: false, canEditProfile: false, canManage: false, restrictedEmployees: null, canPrint: false }
         };
 
         const INITIAL_EMPLOYEES = [
-            { id: "1", name: "Rizqitha, S.Tr.Keb., M.Tr.Keb", position: "Kaprodi S1 Kebidanan", photo: "", isActive: true },
-            { id: "2", name: "Bd. Mariza Mustika D, S.Tr.Keb., M.Tr.Keb", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
-            { id: "3", name: "Rizqi Dian Pratiwi, S.Tr.Keb., M.Tr.Keb", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
-            { id: "4", name: "Dini Cahyani, S.Si, M.Biotech", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
-            { id: "5", name: "Diah Widyatun, S.S.T., M.Tr.Keb", position: "Dosen S1 Kebidanan", photo: "", isActive: true },
-            { id: "6", name: "Bd. Isnu Kurnia N, S.Tr.Keb., M.Tr.Keb", position: "Dosen Profesi Bidan", photo: "", isActive: true},
-            { id: "7", name: "Bdn. Frida Cahyaningrum, S.SiT, M.Kes", position: "Dosen Profesi Bidan", photo: "", isActive: true},
-            { id: "8", name: "Endah Wijayanti, S.SiT, M.Kes", position: "Dosen Profesi Bidan", photo: "", isActive: true},
-            { id: "9", name: "Bdn. Sri Mularsih, S.SiT, M.Kes", position: "Dosen Profesi Bidan", photo: "", isActive: true},
-            { id: "10", name: "Bdn. Lia Ayu K, S.ST., M.Tr.Keb", position: "Dosen Profesi Bidan", photo: "", isActive: true},
-            { id: "11", name: "Titik Kurniawati, S.SiT, M.Kes, M.Keb", position : "Kaprodi D3 Kebidanan", photo: "", isActive: true},
-            { id: "12", name: "Dewi Elliana, SKM, S.Tr.Keb, M.Kes", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
-            { id: "13", name: "Sheyla Najwatul Maula, S.T., M.Tr.Keb", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
-            { id: "14", name: "dr. Rita Agustina, M.Biomed", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
-            { id: "15", name: "Erna Setyaningsih, S.S.T., M.Tr.Keb", position: "Dosen D3 Kebidanan", photo: "", isActive: true},
-            { id: "16", name: "Dr. Erwin, S.H., M.Kn., M.H.", position: "Kaprodi S1 Hukum", photo: "", isActive: true},
-            { id: "17", name: "Muhamad Chabib F, S.H.I., M.H", position: "Dosen S1 Hukum", photo: "", isActive: true},
-            { id: "18", name: "Qolbi Hanif Fadhdlulloh, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
-            { id: "19", name: "Naufal Sebastian, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
-            { id: "20", name: "Pandam Bayu Seto Aji, S.H., M.H.", position: "Dosen S1 Hukum", photo: "", isActive: true},
-            { id: "21", name: "Eko Setyo Ari Wibowo, S.H.I., M.H", position: "Dosen S1 Hukum", photo: "", isActive: true},
-            { id: "22", name: "Muhamad Agung Setiawan, S.Sos., M.Sos", position: "Kaprodi S1 Ilmu Komunikasi", photo:"", isActive: true},
-            { id: "23", name: "Sutinnarto, S.I.Kom., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
-            { id: "24", name: "Rif'atul Himmah, S.Sos., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
-            { id: "25", name: "Najmi Rizki Khairani, S.Sos., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
-            { id: "26", name: "Lakna Tulas'un, S.Sos., M.I.Kom", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
-            { id: "27", name: "Bondan Eko Suratno, S.S. M.A", position: "Dosen S1 Ilmu Komunikasi", photo: "", isActive: true},
-            { id: "28", name: "Reni Nur Arifah, S.E., M.M.", position: "Kaprodi S1 Manajemen", photo: "", isActive: true},
-            { id: "29", name: "Yetty Yuliany K, S.E., M.M.", position: "Dosen S1 Manajemen", photo: "", isActive: true},
-            { id: "30", name: "Randika Shafly Fawwas, S.M., M.M.", position: "Dosen S1 Manajemen", photo: "", isActive: true},
-            { id: "31", name: "Putri Aryo Jelang Fitri Khothimah, S.E., M.M.", position: "Dosen S1 Manajemen", photo: "", isActive: true},
-            { id: "32", name: "Anindya Putri Utami, S.M., M.M", position: "Dosen S1 Manajemen", photo: "", isActive: true},
-            { id: "33", name: "Eva Fachria, S.E., M.S.M", position: "Dosen S1 Manajemen", photo: "", isActive: true},
-            { id: "34", name: "Dr. Agus Fahrurrozy Abdillah, ST., MBA", position: "Dosen S1 Manajemen", photo: "", isActive: true},
-            { id: "35", name: "Nadya Audina NS. S.Si., M.Biomed", position: "Kaprodi S1 Biomedis", photo: "", isActive: true},
-            { id: "36", name: "Mohammad Ariq Nazar, S.Si, M.Biomed", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: "37", name: "Dian Respati Ayu, S.Si., M.Biomed", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: "38", name: "Risky Chandra Satria Irawan S.Si, M.Biomed", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: "39", name: "Naufal Sebastian Anggoro, S.Si., M.Si", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: "40", name: "Dendi Krisna Nugraha, S.Si., M.Sc., PhD.", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: "41", name: "Endah Agustina Lestari, S.Si., M.Mol.Biol", position: "Dosen S1 Biomedis", photo: "", isActive: true},
-            { id: "42", name: "Fauziah Novita Putri Rifai, S.Si., M.Biotech", position: "Kaprodi S1 Bioteknologi", photo: "", isActive: true},
-            { id: "43", name: "Iffan Alif, S.Si, M.Biotech", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: "44", name: "Nurul Hidayah S.Si, M.Biotech", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: "45", name: "Salindri Prawitasari, S.Si, M.Biotech", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: "46", name: "Waheni Rizky Aprilia, Ph.D.", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: "47", name: "Ahmed Faheem Khan, Ph.D.", position: "Dosen S1 Bioteknologi", photo: "", isActive: true},
-            { id: "48", name: "Labbra Pasaribu, S.M", position: "Tendik", photo: "", isActive: true},
-            { id: "49", name: "Alvin Syaptia Pratama, S.I.Kom", position: "Tendik", photo: "", isActive: true},
-            { id: "50", name: "Daffa Restu Fadhillah, S.Kom", position: "Tendik", photo: "", isActive: true},
-            { id: "51", name: "Claudea Winandyaz Rakasiwi, S.Pd., m.Pd", position: "Tendik", photo: "", isActive: true},
-            { id: "52", name: "Alya Namira Ikfinasulkha, S.I.P", position: "Tendik", photo: "", isActive: true},
-            { id: "53", name: "Alya Pramesty, S.Si", position: "Tendik", photo: "", isActive: true},
-            { id: "54", name: "Ridha Azzahra, S.Pd", position: "Tendik", photo: "", isActive: true},
-            { id: "55", name: "Dina Haifa Shofwa, A.Md.Keb", position: "Tendik", photo: "", isActive: true},
-            { id: "56", name: "Audre Faniaputri Maulida, S.Pd", position: "Tendik", photo: "", isActive: true},
-            { id: "57", name: "Firda Rismadhani, S.M", position: "Tendik", photo: "", isActive: true},
-            { id: "58", name: "Panji Agung Pidekso, S.Hum", position: "Tendik", photo: "", isActive: true},
-            { id: "59", name: "Rudi Hermawan, S.Kom", position: "Tendik", photo: "", isActive: true},
-            { id: "60", name: "Rifky Ariya Pratama, S.Kom", position: "Tendik", photo: "", isActive: true}
+            { id: "1", name: "Rizqitha, S.Tr.Keb., M.Tr.Keb", position: "Kaprodi S1 Kebidanan", photo: "", isActive: true, joinDate: "2019-01-01" },
+            { id: "16", name: "Dr. Erwin, S.H., M.Kn., M.H.", position: "Kaprodi S1 Hukum", photo: "", isActive: true, joinDate: "2021-01-01" },
+            { id: "22", name: "Muhamad Agung Setiawan, S.Sos., M.Sos", position: "Kaprodi S1 Ilmu Komunikasi", photo:"", isActive: true, joinDate: "2020-01-01" },
+            { id: "28", name: "Reni Nur Arifah, S.E., M.M.", position: "Kaprodi S1 Manajemen", photo: "", isActive: true, joinDate: "2020-01-01" },
+            { id: "50", name: "Daffa Restu Fadhillah, S.Kom", position: "Tendik", photo: "", isActive: true, joinDate: "2022-01-01" },
+            { id: "54", name: "Ridha Azzahra, S.Pd", position: "Tendik", photo: "", isActive: true, joinDate: "2022-01-01" },
+            { id: "59", name: "Rudi Hermawan, S.Kom", position: "Tendik", photo: "", isActive: true, joinDate: "2021-01-01" }
         ];
 
         const APP_DATA = {
@@ -116,7 +57,7 @@
 
         const GRADING = [
             { grade: 'A', min: 511, max: 680, label: 'Sangat Baik', color: 'bg-emerald-500', text: 'text-emerald-700' },
-            { grade: 'B', min: 341, max: 510, label: 'Baik', color: 'bg-blue-500', text: 'text-blue-700' },
+            { grade: 'B', min: 341, max: 510, label: 'Baik', color: 'bg-blue-600', text: 'text-blue-700' },
             { grade: 'C', min: 171, max: 340, label: 'Cukup', color: 'bg-amber-500', text: 'text-amber-700' },
             { grade: 'D', min: 0, max: 170, label: 'Buruk', color: 'bg-rose-500', text: 'text-rose-700' }
         ];
@@ -125,50 +66,122 @@
         let currentScores = {};
         let selectedEmployee = null;
         let currentUserRole = null; 
-        let totalCriteria = APP_DATA.sections.reduce((acc, s) => acc + s.items.length, 0);
         let allHistoryData = [];
+        let currentEditingEmployee = null;
+        let employeeToDelete = null;
+        const totalCriteria = APP_DATA.sections.reduce((acc, s) => acc + s.items.length, 0);
+
+        const getPreviousMonthString = () => {
+            const date = new Date();
+            date.setDate(1); // Proteksi bug hari ke-31
+            date.setMonth(date.getMonth() - 1);
+            return date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+        };
+
+        const calculateMasaKerja = (dateStr) => {
+            if (!dateStr || dateStr === "-") return "-";
+            const start = new Date(dateStr);
+            const now = new Date();
+
+            if (now < start) return "Baru Bergabung";
+
+            let years = now.getFullYear() - start.getFullYear();
+            let months = now.getMonth() - start.getMonth();
+            let days = now.getDate() - start.getDate();
+
+            if (days < 0) {
+                months--;
+                // Ambil jumlah hari dari bulan sebelumnya (otomatis mendeteksi kabisat/jumlah hari)
+                const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                days += prevMonth.getDate();
+            }
+
+            if (months < 0) {
+                years--;
+                months += 12;
+            }
+
+            if (years === 0 && months === 0) return `${days} Hari`;
+            if (years === 0) return `${months} Bulan ${days > 0 ? days + ' Hari' : ''}`.trim();
+            return `${years} Tahun ${months > 0 ? months + ' Bulan' : ''}`.trim();
+        };
+
+        const calculateScore = () => {
+            const rawSum = Object.values(currentScores).reduce((a, b) => a + b, 0);
+            return Math.round((rawSum / (totalCriteria * 4)) * 680);
+        };
+
+        const getGradeInfo = (score) => GRADING.find(g => score >= g.min && score <= g.max) || GRADING[3];
+
+        const showToast = (msg, type = "success") => {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastBar = document.getElementById('toast-progress');
+            const toastIcon = document.getElementById('toast-icon');
+            if (!toast) return;
+            toastMsg.innerText = msg;
+            toast.className = `fixed top-6 right-6 flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-xl border border-white/20 text-white font-bold z-[600] min-w-[300px] transition-all duration-500 translate-x-full opacity-0 ${type === 'success' ? 'bg-emerald-500/90' : 'bg-rose-500/90'}`;
+            toastIcon.innerHTML = type === 'success' ? '<i data-lucide="check-circle" class="w-6 h-6"></i>' : '<i data-lucide="x-circle" class="w-6 h-6"></i>';
+            lucide.createIcons();
+            setTimeout(() => { toast.classList.remove('translate-x-full', 'opacity-0'); }, 10);
+            toastBar.style.width = '100%';
+            setTimeout(() => { toastBar.style.width = '0%'; }, 50);
+            setTimeout(() => { toast.classList.add('translate-x-full', 'opacity-0'); }, 3000);
+        };
+
+        const updateSummary = () => {
+            const score = calculateScore();
+            const gradeInfo = getGradeInfo(score);
+            const scoreEl = document.getElementById('final-score');
+            const gradeEl = document.getElementById('final-grade');
+            if (scoreEl) scoreEl.innerText = score;
+            if (gradeEl) {
+                gradeEl.innerText = `${gradeInfo.grade} - ${gradeInfo.label}`;
+                gradeEl.className = `text-xl font-bold ${gradeInfo.text}`;
+            }
+            const filledCount = Object.keys(currentScores).length;
+            const saveBtn = document.getElementById('save-btn');
+            const canSave = selectedEmployee && selectedEmployee.isActive && filledCount >= totalCriteria;
+            if (saveBtn) saveBtn.disabled = !canSave;
+        };
 
         window.toggleView = (view) => {
             document.getElementById('login-view').classList.add('hidden');
             document.getElementById('form-view').classList.toggle('hidden', view !== 'form');
             document.getElementById('history-view').classList.toggle('hidden', view !== 'history');
+            document.getElementById('management-view').classList.toggle('hidden', view !== 'management');
             updateUIState();
-            if (view === 'history') renderHistoryTable();
+            if (view === 'history') window.renderHistoryTable();
+            if (view === 'management') window.renderManagementTable();
         };
 
         const updateUIState = () => {
             const navForm = document.getElementById('nav-form');
             const navHist = document.getElementById('nav-history');
-            const isForm = !document.getElementById('form-view').classList.contains('hidden');
-            
-            navForm.className = `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${isForm ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`;
-            navHist.className = `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${!isForm ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`;
-            
-            navHist.classList.remove('hidden');
+            const navManage = document.getElementById('nav-manage');
+            const formView = document.getElementById('form-view');
+            const historyView = document.getElementById('history-view');
+            const manageView = document.getElementById('management-view');
 
-            const editBtn = document.getElementById('admin-edit-btn');
-            if(selectedEmployee && currentUserRole?.canEditProfile) {
-                editBtn.style.setProperty('display', 'flex', 'important');
-            } else {
-                editBtn.style.setProperty('display', 'none', 'important');
+            if (navForm && navHist && navManage) {
+                navForm.className = `flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black transition-all ${!formView.classList.contains('hidden') ? 'bg-white text-[#2c5282] shadow-sm' : 'text-slate-500'}`;
+                navHist.className = `flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black transition-all ${!historyView.classList.contains('hidden') ? 'bg-white text-[#2c5282] shadow-sm' : 'text-slate-500'}`;
+                navManage.className = `flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black transition-all ${!manageView.classList.contains('hidden') ? 'bg-white text-[#2c5282] shadow-sm' : 'text-slate-500'}`;
+                navManage.classList.toggle('hidden', !currentUserRole?.canManage);
             }
-            lucide.createIcons();
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         };
 
         window.handleLogin = () => {
             const pinInput = document.getElementById('login-pin');
             const pin = pinInput.value;
             const role = ROLES[pin];
-            
             if (role) {
                 const overlay = document.getElementById('loading-overlay');
-                const overlayText = overlay.querySelector('p');
-                overlayText.innerText = "Menyiapkan Dashboard";
-                
+                overlay.querySelector('p').innerText = "Menyiapkan Dashboard";
                 overlay.classList.remove('hidden');
                 setTimeout(() => overlay.classList.remove('opacity-0'), 10);
-
-                // Dipercepat menjadi 600ms untuk login agar terasa responsif
                 setTimeout(() => {
                     currentUserRole = role;
                     document.getElementById('login-view').classList.add('hidden');
@@ -177,12 +190,11 @@
                     window.toggleView('form');
                     updateEmployeeDropdown();
                     renderHistoryTable(); 
-                    
                     overlay.classList.add('opacity-0');
                     setTimeout(() => {
                         overlay.classList.add('hidden');
                         showToast(`Selamat Datang, ${role.label}`);
-                    }, 300); // Overlay pudar lebih cepat
+                    }, 300);
                 }, 600); 
             } else {
                 showToast("PIN Salah!", "error");
@@ -191,101 +203,71 @@
         };
 
         window.handleLogout = () => {
-            const overlay = document.getElementById('loading-overlay');
-            const overlayText = overlay.querySelector('p');
-            overlayText.innerText = "Keluar dari Sistem...";
-            
-            overlay.classList.remove('hidden');
-            setTimeout(() => overlay.classList.remove('opacity-0'), 10);
-
-            // Dipercepat menjadi 500ms untuk logout
-            setTimeout(() => {
-                currentUserRole = null;
-                document.getElementById('app-content').classList.add('hidden');
-                document.getElementById('login-view').classList.remove('hidden');
-                resetForm();
-                
-                overlay.classList.add('opacity-0');
-                setTimeout(() => {
-                    overlay.classList.add('hidden');
-                }, 300);
-            }, 500);
+            currentUserRole = null;
+            document.getElementById('app-content').classList.add('hidden');
+            document.getElementById('login-view').classList.remove('hidden');
+            resetForm();
         };
 
         window.handleEmployeeSelect = (e) => {
             selectedEmployee = EMPLOYEE_DB.find(emp => emp.id == e.target.value) || null;
             refreshProfileCard();
             updateUIState();
-            
             const canFill = selectedEmployee && selectedEmployee.isActive;
-            const inactiveWarning = document.getElementById('inactive-warning');
-            
-            if (selectedEmployee && !selectedEmployee.isActive) {
-                inactiveWarning.classList.remove('hidden');
-            } else {
-                inactiveWarning.classList.add('hidden');
-            }
-
             document.querySelectorAll('.score-btn').forEach(btn => {
                 btn.disabled = !canFill;
                 btn.classList.toggle('opacity-30', !canFill);
-                btn.classList.toggle('cursor-not-allowed', !canFill);
             });
-            
             updateSummary();
         };
 
         const refreshProfileCard = () => {
             const profileCard = document.getElementById('employee-profile-card');
-            const placeholder = document.getElementById('prof-placeholder');
             const imgContainer = document.getElementById('prof-img-container');
             const statusBadge = document.getElementById('status-badge');
             const empPositionHeader = document.getElementById('emp-position');
-
+            const profMasa = document.getElementById('prof-masa');
+            
             if (selectedEmployee) {
                 document.getElementById('prof-name').innerText = selectedEmployee.name;
                 document.getElementById('prof-pos').innerText = selectedEmployee.position;
-                empPositionHeader.innerText = selectedEmployee.position;
-
-                if(selectedEmployee.isActive) {
-                    statusBadge.className = "inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-100";
-                    statusBadge.innerHTML = '<span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Aktif';
-                } else {
-                    statusBadge.className = "inline-flex items-center gap-1.5 px-4 py-1.5 bg-rose-50 text-rose-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-rose-100";
-                    statusBadge.innerHTML = '<span class="w-1.5 h-1.5 bg-rose-500 rounded-full"></span> Tidak Aktif';
+                if (empPositionHeader) empPositionHeader.innerText = selectedEmployee.position;
+                
+                if (profMasa) {
+                    profMasa.innerText = calculateMasaKerja(selectedEmployee.joinDate);
+                    profMasa.classList.remove('hidden');
                 }
 
-                if (selectedEmployee.photo) {
-                    imgContainer.innerHTML = `<img src="${selectedEmployee.photo}" class="w-full h-full object-cover rounded-3xl" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(selectedEmployee.name)}&background=random'">`;
-                    placeholder.classList.add('hidden');
-                } else {
-                    imgContainer.innerHTML = '';
-                    placeholder.classList.remove('hidden');
+                if(statusBadge) {
+                    statusBadge.innerText = selectedEmployee.isActive ? 'Aktif' : 'Tidak Aktif';
+                    statusBadge.className = `px-3 py-1 rounded-full text-xs font-bold ${selectedEmployee.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`;
+                }
+                if (imgContainer) {
+                    imgContainer.innerHTML = `<img src="${selectedEmployee.photo || 'https://ui-avatars.com/api/?name='+encodeURIComponent(selectedEmployee.name)}" class="w-full h-full object-cover rounded-3xl">`;
                 }
                 profileCard.classList.remove('hidden');
             } else {
                 profileCard.classList.add('hidden');
-                empPositionHeader.innerText = '-';
+                if (empPositionHeader) empPositionHeader.innerText = '-';
+                if (profMasa) profMasa.classList.add('hidden');
             }
         };
 
-        window.openEditModal = () => {
-            if(!selectedEmployee || !currentUserRole?.canEditProfile) return;
-            document.getElementById('edit-emp-name').value = selectedEmployee.name;
-            document.getElementById('edit-emp-pos').value = selectedEmployee.position;
-            document.getElementById('edit-emp-photo').value = "";
-            document.getElementById('edit-emp-status').value = selectedEmployee.isActive ? "true" : "false";
-            document.getElementById('edit-modal').classList.remove('hidden');
+        // --- MANAGEMENT FUNCTIONS ---
+        window.openAddEmployeeModal = () => {
+            document.getElementById('add-emp-form').reset();
+            openModal('add-employee-modal');
         };
 
-        window.saveEmployeeData = async () => {
-            const newName = document.getElementById('edit-emp-name').value;
-            const newPos = document.getElementById('edit-emp-pos').value;
-            const fileInput = document.getElementById('edit-emp-photo');
-            const newStatus = document.getElementById('edit-emp-status').value === "true";
+        window.addNewEmployee = async () => {
+            const name = document.getElementById('add-emp-name').value;
+            const pos = document.getElementById('add-emp-pos').value;
+            const joinDate = document.getElementById('add-emp-joindate').value;
+            const fileInput = document.getElementById('add-emp-photo');
+            
+            if(!name || !pos || !joinDate) return showToast("Nama, Jabatan, dan Tanggal Bergabung wajib diisi", "error");
 
-            let photoData = selectedEmployee.photo || "";
-
+            let photoData = "";
             if (fileInput.files && fileInput.files[0]) {
                 const reader = new FileReader();
                 const filePromise = new Promise((resolve) => {
@@ -296,16 +278,136 @@
             }
 
             try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'employees', selectedEmployee.id), {
-                    id: selectedEmployee.id,
+                const newId = Date.now().toString();
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'employees', newId), {
+                    id: newId,
+                    name,
+                    position: pos,
+                    joinDate: joinDate,
+                    photo: photoData,
+                    isActive: true
+                });
+                closeModal('add-employee-modal');
+                showToast("Karyawan Baru Ditambahkan");
+            } catch (err) {
+                showToast("Gagal menambah karyawan", "error");
+            }
+        };
+
+        window.deleteEmployee = (id) => {
+            employeeToDelete = id;
+            openModal('delete-confirm-modal');
+        };
+
+        window.confirmDeleteEmployee = async () => {
+            if (!employeeToDelete) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'employees', employeeToDelete));
+                showToast("Karyawan Dihapus");
+                closeModal('delete-confirm-modal');
+                employeeToDelete = null;
+            } catch (err) {
+                showToast("Gagal menghapus", "error");
+            }
+        };
+
+        window.toggleEmployeeStatus = async (id, currentStatus) => {
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'employees', id), {
+                    isActive: !currentStatus
+                });
+                showToast(`Status diperbarui ke ${!currentStatus ? 'Aktif' : 'Non-Aktif'}`);
+            } catch (err) {
+                showToast("Gagal memperbarui status", "error");
+            }
+        };
+
+        window.renderManagementTable = () => {
+            const tbody = document.getElementById('management-body');
+            if (!tbody) return;
+            
+            const nameFilter = document.getElementById('filter-manage-name')?.value.toLowerCase() || '';
+            const filteredEmployees = EMPLOYEE_DB.filter(emp => 
+                emp.name.toLowerCase().includes(nameFilter) || 
+                (emp.position && emp.position.toLowerCase().includes(nameFilter))
+            );
+            
+            tbody.innerHTML = filteredEmployees.length ? filteredEmployees.map(emp => `
+                <tr class="hover:bg-slate-50 border-b border-slate-100 transition-colors">
+                    <td class="px-8 py-5">
+                        <div class="flex items-center gap-4">
+                            <img src="${emp.photo || 'https://ui-avatars.com/api/?name='+encodeURIComponent(emp.name)}" class="w-10 h-10 rounded-xl object-cover border border-slate-200">
+                            <div>
+                                <p class="font-bold text-slate-800 leading-none text-xs">${emp.name}</p>
+                                <p class="text-[9px] font-black text-slate-400 mt-1 uppercase tracking-wider">${emp.position}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-8 py-5">
+                        <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${emp.isActive ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}">
+                            ${emp.isActive ? 'Aktif' : 'Non-Aktif'}
+                        </span>
+                    </td>
+                    <td class="px-8 py-5 text-center">
+                        <div class="flex items-center justify-center gap-3">
+                            <button onclick="window.openEditModalById('${emp.id}')" class="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Edit Profil">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="window.toggleEmployeeStatus('${emp.id}', ${emp.isActive})" class="p-2 text-slate-400 hover:text-amber-600 transition-colors" title="Ubah Status">
+                                <i data-lucide="${emp.isActive ? 'user-minus' : 'user-plus'}" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="window.deleteEmployee('${emp.id}')" class="p-2 text-slate-400 hover:text-rose-500 transition-colors" title="Hapus Permanen">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('') : '<tr><td colspan="3" class="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Data Karyawan Tidak Ditemukan</td></tr>';
+            lucide.createIcons();
+        };
+
+        window.openEditModalById = (id) => {
+            const target = EMPLOYEE_DB.find(e => e.id === id);
+            if(!target) return;
+            currentEditingEmployee = target;
+            document.getElementById('edit-emp-name').value = target.name;
+            document.getElementById('edit-emp-pos').value = target.position;
+            document.getElementById('edit-emp-joindate').value = target.joinDate || '';
+            document.getElementById('edit-emp-status').value = target.isActive ? "true" : "false";
+            document.getElementById('edit-emp-photo').value = ''; 
+            openModal('edit-modal');
+        };
+
+        window.saveEmployeeData = async () => {
+            if(!currentEditingEmployee) return;
+            const newName = document.getElementById('edit-emp-name').value;
+            const newPos = document.getElementById('edit-emp-pos').value;
+            const newJoinDate = document.getElementById('edit-emp-joindate').value;
+            const fileInput = document.getElementById('edit-emp-photo');
+            const newStatus = document.getElementById('edit-emp-status').value === "true";
+            
+            let photoData = currentEditingEmployee.photo || "";
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                const filePromise = new Promise((resolve) => {
+                    reader.onload = (e) => resolve(e.target.result);
+                });
+                reader.readAsDataURL(fileInput.files[0]);
+                photoData = await filePromise;
+            }
+            
+            try {
+                const empRef = doc(db, 'artifacts', appId, 'public', 'data', 'employees', currentEditingEmployee.id);
+                await updateDoc(empRef, {
                     name: newName,
                     position: newPos,
+                    joinDate: newJoinDate,
                     photo: photoData,
                     isActive: newStatus
                 });
-
-                document.getElementById('edit-modal').classList.add('hidden');
-                showToast("Data Karyawan Tersimpan");
+                closeModal('edit-modal');
+                showToast("Profil Karyawan Diperbarui");
+                currentEditingEmployee = null;
             } catch (err) {
                 showToast("Gagal menyimpan perubahan", "error");
             }
@@ -313,399 +415,384 @@
 
         window.setScore = (sectionId, idx, value) => {
             if (selectedEmployee && !selectedEmployee.isActive) return; 
-            
             currentScores[`${sectionId}-${idx}`] = value;
             document.querySelectorAll(`[id^="btn-${sectionId}-${idx}-"]`).forEach(btn => {
-                btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm', 'scale-110');
+                btn.classList.remove('bg-white', 'text-[#2c5282]', 'shadow-md', 'scale-110');
                 btn.classList.add('text-slate-400');
             });
             const activeBtn = document.getElementById(`btn-${sectionId}-${idx}-${value}`);
-            activeBtn.classList.replace('text-slate-400', 'text-indigo-600');
-            activeBtn.classList.add('bg-white', 'shadow-sm', 'scale-110');
+            if (activeBtn) {
+                activeBtn.classList.replace('text-slate-400', 'text-[#2c5282]');
+                activeBtn.classList.add('bg-white', 'shadow-md', 'scale-110');
+            }
             updateSummary();
         };
 
         window.handleSave = async () => {
-            if (!selectedEmployee || !selectedEmployee.isActive) {
-                showToast("Karyawan Tidak Aktif - Simpan Gagal", "error");
-                return;
-            }
-
+            if (!selectedEmployee || !selectedEmployee.isActive) return;
             const filledCount = Object.keys(currentScores).length;
             if (filledCount < totalCriteria) {
-                document.getElementById('alert-modal').classList.remove('hidden');
+                openModal('alert-modal');
                 return;
             }
-
             const saveBtn = document.getElementById('save-btn');
             saveBtn.disabled = true;
-            saveBtn.innerText = "Menyimpan...";
             try {
-                const score = calculateScore();
-                const gradeInfo = getGradeInfo(score);
+                const scoreValue = calculateScore();
+                const gradeInfo = getGradeInfo(scoreValue);
+                const currentMasaKerja = calculateMasaKerja(selectedEmployee.joinDate);
+                
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'assessments'), {
+                    employeeId: selectedEmployee.id,
                     employeeName: selectedEmployee.name,
                     position: selectedEmployee.position,
+                    unit: "-",
+                    masaKerja: currentMasaKerja,
                     period: getPreviousMonthString(),
-                    score: score,
+                    score: scoreValue,
                     grade: gradeInfo.grade,
                     quality: gradeInfo.label,
+                    individualScores: currentScores,
                     createdAt: Date.now()
                 });
-                showToast("Berhasil Disimpan!", "success");
+                showToast("Berhasil Disimpan!");
                 window.resetForm();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-            } catch (err) { 
-                showToast("Tidak Berhasil Disimpan", "error"); 
-            } finally { 
-                saveBtn.disabled = false; 
-                saveBtn.innerHTML = 'Simpan'; 
-                updateSummary(); 
-            }
+            } catch (err) { showToast("Gagal Simpan", "error"); }
+            finally { saveBtn.disabled = false; }
+        };
+
+        window.handlePrintPDF = async (id) => {
+            const data = allHistoryData.find(h => h.id === id);
+            if (!data) return;
+            const template = document.getElementById('pdf-template');
+            document.getElementById('pdf-unit').innerText = data.unit || '-';
+            document.getElementById('pdf-jabatan').innerText = data.position || '-';
+            document.getElementById('pdf-nama').innerText = data.employeeName || '-';
+            document.getElementById('pdf-masa').innerText = data.masaKerja || '-';
+            document.getElementById('pdf-total-skor').innerText = data.score;
+            const tbody = document.getElementById('pdf-table-body');
+            tbody.innerHTML = '';
+            APP_DATA.sections.forEach((section) => {
+                tbody.insertAdjacentHTML('beforeend', `<tr style="background:#f2f2f2;font-weight:bold;"><td colspan="6" style="border:1px solid black;padding:6px;font-size:10pt;">${section.title}</td></tr>`);
+                section.items.forEach((item, iIdx) => {
+                    const score = data.individualScores?.[`${section.id}-${iIdx}`];
+                    tbody.insertAdjacentHTML('beforeend', `<tr style="font-size: 10pt;"><td style="text-align:center;border:1px solid black;padding:4px;">${iIdx + 1}</td><td style="border:1px solid black;padding-left:6px;">${item}</td><td style="text-align:center;border:1px solid black;font-weight:bold;width:45px;">${score === 4 ? 'V' : ''}</td><td style="text-align:center;border:1px solid black;font-weight:bold;width:45px;">${score === 3 ? 'V' : ''}</td><td style="text-align:center;border:1px solid black;font-weight:bold;width:45px;">${score === 2 ? 'V' : ''}</td><td style="text-align:center;border:1px solid black;font-weight:bold;width:45px;">${score === 1 ? 'V' : ''}</td></tr>`);
+                });
+            });
+            const opt = { margin: 10, filename: `Penilaian_${data.employeeName}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            template.style.display = 'block';
+            template.style.position = 'static';
+            try { await html2pdf().set(opt).from(template).save(); } catch (err) { showToast("Gagal cetak PDF", "error"); }
+            finally { template.style.display = 'none'; template.style.position = 'fixed'; }
         };
 
         window.resetForm = () => {
             currentScores = {};
             selectedEmployee = null;
             document.getElementById('emp-select').value = '';
-            document.getElementById('emp-position').innerText = '-';
-            document.getElementById('employee-profile-card').classList.add('hidden');
-            document.getElementById('inactive-warning').classList.add('hidden');
+            
+            const profileCard = document.getElementById('employee-profile-card');
+            if (profileCard) profileCard.classList.add('hidden');
+            
+            const empPos = document.getElementById('emp-position');
+            if (empPos) empPos.innerText = '-';
+            
+            const profMasa = document.getElementById('prof-masa');
+            if (profMasa) profMasa.classList.add('hidden');
+
             document.querySelectorAll('.score-btn').forEach(btn => {
-                btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm', 'scale-110');
-                btn.classList.add('text-slate-400');
+                btn.classList.remove('bg-white', 'text-[#2c5282]', 'shadow-md', 'scale-110');
+                btn.classList.add('text-slate-400', 'opacity-30');
                 btn.disabled = true;
-                btn.classList.remove('opacity-30', 'cursor-not-allowed');
             });
+
             updateSummary();
             updateUIState();
         };
 
-        window.handleDelete = async (id) => {
-            if (!currentUserRole || !currentUserRole.canDelete) {
-                showToast("Anda tidak memiliki izin menghapus", "error");
-                return;
-            }
-            if(confirm("Hapus data ini?")) {
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'assessments', id));
-                    showToast("Data Terhapus");
-                } catch (err) { console.error(err); }
-            }
-        };
-
-        const getPreviousMonthString = () => {
-            const date = new Date();
-            date.setMonth(date.getMonth() - 1);
-            return date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-        };
-        const calculateScore = () => {
-            const rawSum = Object.values(currentScores).reduce((a, b) => a + b, 0);
-            return Math.round((rawSum / (totalCriteria * 4)) * 680);
-        };
-        const getGradeInfo = (score) => GRADING.find(g => score >= g.min && score <= g.max) || GRADING[3];
-        
-        const updateSummary = () => {
-            const score = calculateScore();
-            const gradeInfo = getGradeInfo(score);
-            document.getElementById('final-score').innerText = score;
-            document.getElementById('final-grade').innerText = `${gradeInfo.grade} - ${gradeInfo.label}`;
-            document.getElementById('final-grade').className = `text-xl font-bold ${gradeInfo.text}`;
-            const filledCount = Object.keys(currentScores).length;
-            document.getElementById('progress-bar').style.width = `${(filledCount / totalCriteria) * 100}%`;
-            document.getElementById('progress-text').innerText = `${filledCount} / ${totalCriteria} Kriteria`;
-            
-            const saveBtn = document.getElementById('save-btn');
-            const canSave = selectedEmployee && selectedEmployee.isActive && filledCount >= totalCriteria;
-            
-            saveBtn.disabled = !canSave;
-            saveBtn.classList.toggle('opacity-50', !canSave);
-            saveBtn.classList.toggle('cursor-not-allowed', !canSave);
-        };
-
-        const showToast = (msg, type = "success") => {
-            const toast = document.getElementById('toast');
-            toast.innerText = msg;
-            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-xl shadow-xl text-white font-bold z-[600] ${type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`;
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 3000);
+        window.handleDeleteAssessment = async (id) => {
+            if (!currentUserRole || !currentUserRole.canDelete) return;
+            if(confirm("Hapus data penilaian ini secara permanen?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'assessments', id));
         };
 
         const updateEmployeeDropdown = () => {
-            if (!currentUserRole) return;
             const empSelect = document.getElementById('emp-select');
-            const currentValue = empSelect.value;
-            empSelect.innerHTML = '<option value="">-- Pilih --</option>';
+            if (!empSelect) return;
+            empSelect.innerHTML = '<option value="">-- Pilih Karyawan --</option>';
             
-            const namesInHistory = allHistoryData.map(h => h.employeeName);
-            let availableEmployees = EMPLOYEE_DB.filter(emp => !namesInHistory.includes(emp.name));
+            const currentPeriod = getPreviousMonthString();
+            const assessedEmployeeIds = allHistoryData
+                .filter(history => history.period === currentPeriod)
+                .map(history => history.employeeId);
+
+            let list = EMPLOYEE_DB.filter(e => !assessedEmployeeIds.includes(e.id));
             
-            if (currentUserRole.restrictedEmployees) {
-                availableEmployees = availableEmployees.filter(emp => currentUserRole.restrictedEmployees.includes(emp.id));
+            if (currentUserRole?.restrictedEmployees) {
+                list = list.filter(e => currentUserRole.restrictedEmployees.includes(e.id));
             }
 
-            const uniquePositions = [...new Set(availableEmployees.map(emp => emp.position || "Lainnya"))].sort();
+            const grouped = list.reduce((acc, emp) => {
+                const pos = emp.position || 'Lainnya';
+                if (!acc[pos]) acc[pos] = [];
+                acc[pos].push(emp);
+                return acc;
+            }, {});
 
-            uniquePositions.forEach(pos => {
-                const groupEmployees = availableEmployees.filter(emp => emp.position === pos);
-                if (groupEmployees.length > 0) {
-                    const optGroup = document.createElement('optgroup');
-                    optGroup.label = `-- ${pos} --`;
-                    groupEmployees.forEach(emp => {
-                        const opt = document.createElement('option');
-                        opt.value = emp.id;
-                        opt.innerText = emp.name + (!emp.isActive ? " (Tidak Aktif)" : "");
-                        optGroup.appendChild(opt);
-                    });
-                    empSelect.appendChild(optGroup);
-                }
+            Object.keys(grouped).sort().forEach(pos => {
+                const groupHtml = `
+                    <optgroup label="${pos}">
+                        ${grouped[pos].map(e => `
+                            <option value="${e.id}">${e.name}${!e.isActive ? ' (Non-Aktif)' : ''}</option>
+                        `).join('')}
+                    </optgroup>
+                `;
+                empSelect.insertAdjacentHTML('beforeend', groupHtml);
+            });
+        };
+
+        window.renderHistoryTable = () => {
+            const nameFilter = document.getElementById('filter-history-name')?.value.toLowerCase() || '';
+            const monthFilter = document.getElementById('filter-history-month')?.value.toLowerCase() || '';
+            const yearFilter = document.getElementById('filter-history-year')?.value || '';
+
+            let filtered = allHistoryData.filter(item => {
+                const matchName = item.employeeName.toLowerCase().includes(nameFilter);
+                const periodStr = item.period.toLowerCase();
+                const matchMonth = monthFilter === '' ? true : periodStr.includes(monthFilter);
+                const matchYear = yearFilter === '' ? true : periodStr.includes(yearFilter);
+                return matchName && matchMonth && matchYear;
             });
 
-            if (currentValue && Array.from(empSelect.options).some(o => o.value === currentValue)) {
-                empSelect.value = currentValue;
-            }
-        };
-
-        const renderHistoryTable = () => {
-            const monthFilter = document.getElementById('filter-month').value;
-            const yearFilter = document.getElementById('filter-year').value;
-            
-            const filtered = allHistoryData.filter(item => {
-                const [month, year] = item.period.split(' ');
-                const matchDate = (monthFilter === "" || month.toLowerCase() === monthFilter.toLowerCase()) && (yearFilter === "" || year === yearFilter);
-                
-                let matchRestricted = true;
-                if (currentUserRole && currentUserRole.restrictedEmployees) {
-                    const emp = EMPLOYEE_DB.find(e => e.name === item.employeeName);
-                    matchRestricted = emp ? currentUserRole.restrictedEmployees.includes(emp.id) : false;
-                }
-                
-                return matchDate && matchRestricted;
-            }).sort((a, b) => b.createdAt - a.createdAt);
+            filtered = filtered.sort((a, b) => b.createdAt - a.createdAt);
             
             const tbody = document.getElementById('history-body');
-            const canDelete = currentUserRole?.canDelete;
-
+            if (!tbody) return;
             tbody.innerHTML = filtered.length ? filtered.map(item => `
-                <tr class="hover:bg-slate-50 border-b border-slate-100">
-                    <td class="px-6 py-4"><p class="font-bold text-slate-800">${item.employeeName}</p><p class="text-xs text-slate-400">${item.position}</p></td>
-                    <td class="px-6 py-4 text-slate-600">${item.period}</td>
-                    <td class="px-6 py-4"><span class="px-2 py-1 rounded text-white font-bold text-xs ${getGradeInfo(item.score).color}">${item.grade}</span> <span class="font-bold ml-2">${item.score}</span></td>
+                <tr class="hover:bg-slate-50 border-b border-slate-100 transition-colors">
+                    <td class="px-6 py-4"><p class="font-bold text-slate-800 text-xs">${item.employeeName}</p><p class="text-[9px] text-slate-400 font-black uppercase">${item.position}</p></td>
+                    <td class="px-6 py-4 text-xs text-slate-600 font-medium">${item.period}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-white font-black text-[9px] ${getGradeInfo(item.score).color}">${item.grade}</span> <span class="font-black ml-2 text-xs">${item.score}</span></td>
                     <td class="px-6 py-4 text-center">
-                        <button onclick="window.handleDelete('${item.id}')" 
-                                class="transition-colors ${canDelete ? 'text-slate-300 hover:text-rose-500' : 'text-slate-100 cursor-not-allowed'}">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                        </button>
+                        <div class="flex items-center justify-center gap-3">
+                            ${currentUserRole?.canPrint ? `<button onclick="window.handlePrintPDF('${item.id}')" class="text-[#2c5282] p-1.5 hover:scale-110 transition-transform"><i data-lucide="printer" class="w-4 h-4"></i></button>` : ''}
+                            ${currentUserRole?.canDelete ? `<button onclick="window.handleDeleteAssessment('${item.id}')" class="text-slate-300 hover:text-rose-500 p-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                        </div>
                     </td>
                 </tr>
-            `).join('') : '<tr><td colspan="4" class="px-6 py-20 text-center text-slate-400 italic">Data tidak ditemukan.</td></tr>';
-            lucide.createIcons();
-        };
-
-        const renderForm = () => {
-            const container = document.getElementById('evaluation-sections');
-            container.innerHTML = APP_DATA.sections.map(section => `
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-                    <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-3">
-                        <div class="p-2 bg-white rounded-lg border border-slate-200 text-indigo-600"><i data-lucide="${section.icon}" class="w-5 h-5"></i></div>
-                        <h2 class="font-bold text-lg text-slate-800">${section.title}</h2>
-                    </div>
-                    <div class="divide-y divide-slate-100">
-                        ${section.items.map((item, idx) => `
-                            <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50">
-                                <p class="text-slate-700 font-medium flex-1">${item}</p>
-                                <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-                                    ${['D', 'C', 'B', 'A'].map((label, v) => `
-                                        <button onclick="window.setScore('${section.id}', ${idx}, ${v + 1})" id="btn-${section.id}-${idx}-${v + 1}" class="score-btn w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm transition-all text-slate-400" disabled>${label}</button>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `).join('');
-            lucide.createIcons();
+            `).join('') : '<tr><td colspan="4" class="p-10 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Data Kosong / Tidak Ditemukan</td></tr>';
+            
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         };
 
         const initEmployees = async () => {
             const empCol = collection(db, 'artifacts', appId, 'public', 'data', 'employees');
             const snapshot = await getDocs(empCol);
-            
             if (snapshot.empty) {
                 const batch = writeBatch(db);
-                INITIAL_EMPLOYEES.forEach(emp => {
-                    const d = doc(db, 'artifacts', appId, 'public', 'data', 'employees', emp.id);
-                    batch.set(d, emp);
-                });
+                INITIAL_EMPLOYEES.forEach(emp => batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'employees', emp.id), emp));
                 await batch.commit();
             }
-
             onSnapshot(empCol, (snap) => {
-                EMPLOYEE_DB = snap.docs.map(d => d.data());
+                EMPLOYEE_DB = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 updateEmployeeDropdown();
-                if (selectedEmployee) {
-                    selectedEmployee = EMPLOYEE_DB.find(e => e.id === selectedEmployee.id);
-                    refreshProfileCard();
+                if(selectedEmployee) {
+                    const updated = EMPLOYEE_DB.find(e => e.id === selectedEmployee.id);
+                    if(updated) {
+                        selectedEmployee = updated;
+                        refreshProfileCard();
+                    }
+                }
+                if (!document.getElementById('management-view').classList.contains('hidden')) {
+                    window.renderManagementTable();
                 }
             });
         };
 
         const init = async () => {
-            if (!auth) return;
             await signInAnonymously(auth);
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
                     await initEmployees();
-                    const q = collection(db, 'artifacts', appId, 'public', 'data', 'assessments');
-                    onSnapshot(q, (snapshot) => {
+                    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'assessments'), (snapshot) => {
                         allHistoryData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                        window.renderHistoryTable();
                         updateEmployeeDropdown();
-                        renderHistoryTable();
                     });
                 }
             });
         };
 
+        const renderForm = () => {
+            const container = document.getElementById('evaluation-sections');
+            if (!container) return;
+            container.innerHTML = APP_DATA.sections.map(section => `
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+                    <div class="bg-slate-50 px-6 py-4 border-b flex items-center gap-3">
+                        <div class="p-2 bg-gradient-to-br from-[#2c5282] to-[#1a365d] rounded-lg text-white shadow-sm"><i data-lucide="${section.icon}" class="w-5 h-5"></i></div>
+                        <h2 class="font-bold text-slate-800 text-sm">${section.title}</h2>
+                    </div>
+                    <div class="divide-y">${section.items.map((item, idx) => `<div class="p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors"><span class="text-slate-700 flex-1 font-medium text-xs leading-relaxed">${item}</span><div class="flex bg-slate-100 p-1 rounded-xl">${['D', 'C', 'B', 'A'].map((label, v) => `<button onclick="window.setScore('${section.id}', ${idx}, ${v + 1})" id="btn-${section.id}-${idx}-${v + 1}" class="score-btn w-8 h-8 rounded-lg flex items-center justify-center font-black text-[9px] text-slate-400 transition-all" disabled>${label}</button>`).join('')}</div></div>`).join('')}</div>
+                </div>`).join('');
+            lucide.createIcons();
+        };
+
+        window.openModal = (id) => {
+            const modal = document.getElementById(id);
+            const content = modal.querySelector('.modal-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                if (content) content.classList.remove('scale-95', 'opacity-0', 'translate-y-4');
+            }, 10);
+        };
+
+        window.closeModal = (id) => {
+            const modal = document.getElementById(id);
+            const content = modal.querySelector('.modal-content');
+            if (content) content.classList.add('scale-95', 'opacity-0', 'translate-y-4');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
         window.onload = () => {
-            document.getElementById('period-display').innerText = getPreviousMonthString();
+            const periodDisplay = document.getElementById('period-display');
+            if (periodDisplay) periodDisplay.innerText = getPreviousMonthString();
             renderForm();
             init();
         };
     </script>
+    <style>
+        #pdf-template { 
+            width: 210mm; padding: 15mm 20mm; background: white; color: black; font-family: "Times New Roman", Times, serif; font-size: 11pt; line-height: 1.3; position: fixed; left: -10000px; top: 0; display: none; visibility: visible !important; opacity: 1 !important;
+        }
+        .pdf-table { width: 100%; border-collapse: collapse; margin: 10px 0; border: 1.5px solid black; }
+        .pdf-table th, .pdf-table td { border: 1px solid black; padding: 4px; }
+        .catatan-line { border-bottom: 1px dotted black; height: 20px; margin-bottom: 5px; }
+        .modal-content { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .bg-glass { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        optgroup { font-style: normal; font-weight: 900; color: #1a365d; background: #f8fafc; text-transform: uppercase; font-size: 9px; letter-spacing: 0.1em; }
+        option { background: white; color: #475569; font-weight: 500; padding: 8px; text-transform: none; letter-spacing: normal; }
+    </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-900 min-h-screen">
-    <div id="toast" class="hidden"></div>
-
-    <!-- LOADING OVERLAY ANIMATION (Dipercepat menjadi duration-300) -->
-    <div id="loading-overlay" class="fixed inset-0 bg-white/80 backdrop-blur-md z-[500] flex flex-col items-center justify-center transition-all duration-300 hidden opacity-0">
-        <div class="relative">
-            <div class="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-2xl shadow-indigo-200 animate-bounce">
-                <i data-lucide="shield-check" class="w-8 h-8"></i>
-            </div>
-            <div class="absolute inset-0 w-16 h-16 bg-indigo-400 rounded-2xl animate-ping opacity-20"></div>
-        </div>
-        <p class="mt-8 text-xs font-black text-slate-800 tracking-[0.3em] uppercase animate-pulse">Menyiapkan Dashboard</p>
+    
+    <!-- TOAST -->
+    <div id="toast" class="hidden transition-all duration-500 overflow-hidden">
+        <div id="toast-icon"></div><p id="toast-msg" class="flex-1 text-xs font-bold"></p>
+        <div class="absolute bottom-0 left-0 h-1 bg-white/40 transition-all duration-[3000ms] ease-linear" id="toast-progress" style="width: 0%"></div>
     </div>
 
-    <!-- LOGIN VIEW -->
-    <div id="login-view" class="fixed inset-0 bg-indigo-600 flex items-center justify-center p-4 z-[300]">
-        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-6">
-            <div class="bg-indigo-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto text-indigo-600 shadow-inner">
-                <i data-lucide="lock" class="w-10 h-10"></i>
-            </div>
-            <div>
-                <h1 class="text-2xl font-black text-slate-800">SDM APU</h1>
-                <p class="text-slate-400 text-sm mt-1">Masukkan PIN untuk mulai menilai</p>
-            </div>
-            <input type="password" id="login-pin" class="w-full border-2 border-slate-100 rounded-2xl px-4 py-4 text-center text-3xl tracking-[0.5em] outline-none focus:border-indigo-500 transition-all" placeholder="••••" maxlength="4" onkeydown="if(event.key==='Enter') handleLogin()">
-            <button onclick="handleLogin()" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
-                <i data-lucide="log-in" class="w-5 h-5"></i> Masuk
-            </button>
-        </div>
-    </div>
+    <!-- LOADING -->
+    <div id="loading-overlay" class="fixed inset-0 bg-[#1a365d]/80 bg-glass z-[500] flex flex-col items-center justify-center transition-all duration-500 hidden opacity-0"><div class="w-16 h-16 bg-gradient-to-br from-[#2c5282] to-[#1a365d] rounded-3xl flex items-center justify-center text-white shadow-2xl animate-bounce border border-white/20"><i data-lucide="shield-check" class="w-8 h-8"></i></div><p class="mt-8 text-[9px] font-black tracking-[0.5em] uppercase text-white animate-pulse">Initializing Terminal...</p></div>
 
-    <!-- APP CONTENT -->
+    <!-- LOGIN -->
+    <div id="login-view" class="fixed inset-0 bg-[#1a365d] flex items-center justify-center p-4 z-[300]"><div class="bg-white rounded-[2.5rem] p-10 max-w-sm w-full shadow-2xl text-center space-y-8 animate-in fade-in zoom-in duration-700"><div class="relative inline-block"><div class="bg-gradient-to-br from-[#2c5282] to-[#1a365d] w-16 h-16 rounded-2xl flex items-center justify-center mx-auto text-white shadow-xl rotate-12"><i data-lucide="lock" class="w-8 h-8 -rotate-12"></i></div></div><div><h1 class="text-2xl font-black text-[#1a365d] tracking-tighter">SDM APU</h1><p class="text-slate-400 text-[10px] mt-2 font-medium uppercase tracking-widest">Internal Performance Terminal</p></div><input type="password" id="login-pin" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-center text-2xl tracking-[0.6em] outline-none focus:border-[#2c5282] focus:bg-white transition-all shadow-inner" placeholder="••••" maxlength="4"><button onclick="handleLogin()" class="w-full py-4 bg-gradient-to-r from-[#2c5282] to-[#1a365d] text-white rounded-2xl font-bold shadow-lg active:scale-95 uppercase text-[10px] tracking-widest">Akses Dashboard</button></div></div>
+
+    <!-- CONTENT -->
     <div id="app-content" class="hidden max-w-5xl mx-auto p-4 md:p-8 space-y-6">
-        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <div class="bg-indigo-600 p-2 rounded-lg text-white"><i data-lucide="clipboard-check" class="w-6 h-6"></i></div>
-                <div>
-                    <h1 class="font-bold text-lg tracking-tight text-slate-800">SDM APU</h1>
-                    <span id="user-badge" class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Role</span>
-                </div>
-            </div>
+        <header class="bg-white/80 bg-glass rounded-[1.5rem] p-4 shadow-xl border border-white/40 flex justify-between items-center sticky top-4 z-[100]">
             <div class="flex items-center gap-4">
-                <div class="flex bg-slate-100 p-1 rounded-xl">
-                    <button id="nav-form" onclick="toggleView('form')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all">Form</button>
-                    <button id="nav-history" onclick="toggleView('history')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all">Riwayat</button>
+                <div class="bg-gradient-to-br from-[#2c5282] to-[#1a365d] p-2.5 rounded-2xl text-white shadow-lg"><i data-lucide="layout-grid" class="w-5 h-5"></i></div>
+                <div><h1 class="font-black text-[#1a365d] leading-none text-base">SDM APU</h1><span id="user-badge" class="text-[8px] uppercase font-bold text-slate-400 tracking-widest mt-1 block">Role</span></div>
+            </div>
+            <div class="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                <button id="nav-form" onclick="toggleView('form')" class="px-4 py-2 rounded-xl text-[10px] font-black transition-all">FORM</button>
+                <button id="nav-history" onclick="toggleView('history')" class="px-4 py-2 rounded-xl text-[10px] font-black transition-all">RIWAYAT</button>
+                <button id="nav-manage" onclick="toggleView('management')" class="px-4 py-2 rounded-xl text-[10px] font-black transition-all hidden">MANAJEMEN</button>
+            </div>
+            <button onclick="handleLogout()" class="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"><i data-lucide="log-out" class="w-4 h-4"></i></button>
+        </header>
+
+        <main id="form-view">
+            <div class="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
+                <div class="space-y-2"><label class="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em]">Target Karyawan</label><select id="emp-select" onchange="handleEmployeeSelect(event)" class="w-full border-b-2 border-slate-100 py-2 outline-none font-bold text-slate-700 bg-transparent focus:border-[#2c5282] text-xs"></select></div>
+                <div class="space-y-2"><label class="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em]">Jabatan</label><div id="emp-position" class="py-2 border-b-2 border-slate-50 text-slate-500 font-bold h-10 flex items-center text-xs">-</div></div>
+                <div class="space-y-2"><label class="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em]">Periode</label><div id="period-display" class="py-2 border-b-2 border-slate-50 text-[#2c5282] font-black h-10 flex items-center uppercase italic text-xs">-</div></div>
+            </div>
+            <div id="employee-profile-card" class="hidden bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100 mb-6 flex items-center gap-10 animate-in fade-in slide-in-from-bottom-8 duration-500">
+                <div id="prof-img-container" class="w-24 h-24 bg-slate-50 rounded-[2rem] overflow-hidden border-4 border-white shadow-2xl flex-shrink-0"></div>
+                <div class="flex-1"><h2 id="prof-name" class="text-3xl font-black text-[#1a365d] tracking-tighter leading-none mb-4 text-xl"></h2><div class="flex flex-wrap gap-3"><span id="prof-pos" class="bg-slate-100 px-4 py-1.5 rounded-xl text-[9px] font-black text-slate-500 uppercase tracking-wider"></span><span id="prof-masa" class="bg-indigo-50 px-4 py-1.5 rounded-xl text-[9px] font-black text-[#2c5282] uppercase tracking-wider hidden"></span><span id="status-badge"></span></div></div>
+            </div>
+            <div id="evaluation-sections" class="space-y-6"></div>
+            <div class="sticky bottom-8 bg-white/90 bg-glass rounded-[2.5rem] p-8 shadow-[0_20px_80px_rgba(0,0,0,0.2)] border border-white/40 flex items-center justify-between z-40 transition-all"><div class="flex gap-10 items-center"><div class="text-center"><p class="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 text-[7px]">Final Score</p><p id="final-score" class="text-4xl font-black text-slate-800 leading-none">0</p></div><div class="h-10 w-px bg-slate-200"></div><div class="text-center"><p class="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 text-[7px]">Performance Grade</p><p id="final-grade" class="font-black text-base italic uppercase tracking-tighter leading-none"></p></div></div><div class="flex gap-3"><button onclick="resetForm()" class="px-8 py-3.5 rounded-2xl border-2 border-slate-100 font-black text-slate-500 uppercase tracking-wider text-[10px]">Reset</button><button id="save-btn" onclick="handleSave()" class="px-10 py-3.5 bg-gradient-to-r from-[#2c5282] to-[#1a365d] text-white font-black rounded-2xl disabled:opacity-50 active:scale-95 uppercase tracking-wider text-[10px] shadow-lg shadow-blue-200">Submit</button></div></div>
+        </main>
+
+        <section id="history-view" class="hidden bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden min-h-[500px]">
+            <div class="p-8 bg-slate-50/50 border-b flex flex-col gap-6">
+                <div class="font-black text-[#1a365d] flex items-center gap-4 uppercase tracking-[0.2em] text-[10px]">
+                    <i data-lucide="database" class="w-4 h-4 text-[#2c5282]"></i> Riwayat Pengisian
                 </div>
-                <button onclick="handleLogout()" class="p-2 text-slate-300 hover:text-rose-500 transition-all" title="Logout">
-                    <i data-lucide="log-out" class="w-5 h-5"></i>
-                </button>
-            </div>
-        </div>
-
-        <div id="form-view">
-            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div><label class="text-xs font-bold text-slate-400 uppercase tracking-widest">Karyawan</label><select id="emp-select" onchange="handleEmployeeSelect(event)" class="w-full border-b border-slate-200 py-1 bg-transparent outline-none font-bold text-slate-700"><option value="">-- Pilih --</option></select></div>
-                <div><label class="text-xs font-bold text-slate-400 uppercase tracking-widest">Jabatan</label><div id="emp-position" class="py-1 border-b border-slate-100 text-slate-500 font-medium h-8">-</div></div>
-                <div><label class="text-xs font-bold text-slate-400 uppercase tracking-widest">Periode</label><div id="period-display" class="py-1 border-b border-slate-100 text-indigo-600 font-bold h-8">-</div></div>
-            </div>
-
-            <div id="inactive-warning" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-6 flex items-center gap-3 text-rose-600">
-                <i data-lucide="alert-circle" class="w-5 h-5"></i>
-                <p class="text-sm font-bold tracking-tight">Karyawan ini berstatus tidak aktif. Penilaian & penyimpanan dikunci.</p>
-            </div>
-
-            <div id="employee-profile-card" class="hidden bg-white rounded-3xl p-8 shadow-sm border border-slate-200 mb-6 relative overflow-hidden tracking-tight">
-                <div class="flex flex-col sm:flex-row items-center gap-8 relative z-10">
-                    <div class="w-24 h-24 sm:w-28 sm:h-28 bg-slate-100 rounded-3xl flex items-center justify-center text-slate-400 border-4 border-white shadow-xl overflow-hidden relative flex-shrink-0" id="prof-img-container"></div>
-                    <div id="prof-placeholder" class="hidden absolute left-4 top-4 sm:left-10 sm:top-10"><i data-lucide="user" class="w-12 h-12 text-slate-300"></i></div>
-                    <div class="text-center sm:text-left">
-                        <h2 class="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight mb-2" id="prof-name">-</h2>
-                        <div class="flex flex-wrap justify-center sm:justify-start gap-3">
-                            <span class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-slate-100 text-slate-600 rounded-full text-sm font-bold"><i data-lucide="briefcase" class="w-4 h-4"></i> <span id="prof-pos">-</span></span>
-                            <span id="status-badge"></span>
-                        </div>
+                <div class="flex flex-col md:flex-row gap-4 items-center">
+                    <div class="relative flex-1 w-full">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="filter-history-name" oninput="window.renderHistoryTable()" placeholder="Cari nama karyawan..." class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-[#2c5282] transition-all shadow-sm">
                     </div>
-                    <button id="admin-edit-btn" onclick="openEditModal()" class="ml-auto p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm flex items-center justify-center" style="display: none;"><i data-lucide="edit-3" class="w-6 h-6"></i></button>
-                </div>
-            </div>
-
-            <div id="evaluation-sections"></div>
-            
-            <div class="sticky bottom-8 bg-white/90 backdrop-blur-md rounded-2xl p-6 shadow-2xl border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6 z-40">
-                <div class="flex gap-8 items-center">
-                    <div class="text-center"><p class="text-[10px] font-bold text-slate-400 uppercase">Skor</p><p id="final-score" class="text-4xl font-black">0</p></div>
-                    <div class="text-center"><p class="text-[10px] font-bold text-slate-400 uppercase">Grade</p><p id="final-grade" class="text-xl font-bold text-slate-300">D - Buruk</p></div>
-                    <div class="hidden md:block w-40"><div class="flex justify-between text-[10px] font-bold text-slate-400 mb-1"><span>Progress</span><span id="progress-text">0 / 31</span></div><div class="h-1.5 bg-slate-100 rounded-full overflow-hidden"><div id="progress-bar" class="h-full bg-indigo-600 transition-all" style="width: 0%"></div></div></div>
-                </div>
-                <div class="flex gap-3 w-full md:w-auto">
-                    <button onclick="resetForm()" class="flex-1 md:flex-none px-6 py-3 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50">Batal</button>
-                    <button id="save-btn" onclick="handleSave()" class="flex-1 md:flex-none px-8 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all">Simpan</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="history-view" class="hidden">
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]">
-                <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50">
-                    <h2 class="text-xl font-bold flex items-center gap-2">Riwayat</h2>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <select id="filter-month" onchange="renderHistoryTable()" class="bg-white border rounded-lg px-3 py-1.5 text-sm outline-none"><option value="">Semua Bulan</option><option value="Januari">Januari</option><option value="Februari">Februari</option><option value="Maret">Maret</option><option value="April">April</option><option value="Mei">Mei</option><option value="Juni">Juni</option><option value="Juli">Juli</option><option value="Agustus">Agustus</option><option value="September">September</option><option value="Oktober">Oktober</option><option value="November">November</option><option value="Desember">Desember</option></select>
-                        <select id="filter-year" onchange="renderHistoryTable()" class="bg-white border rounded-lg px-3 py-1.5 text-sm outline-none"><option value="">Semua Tahun</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option></select>
+                    <div class="flex w-full md:w-auto gap-3">
+                        <select id="filter-history-month" onchange="window.renderHistoryTable()" class="flex-1 md:flex-none py-2.5 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-[#2c5282] transition-all shadow-sm cursor-pointer min-w-[120px]">
+                            <option value="">Semua Bulan</option>
+                            <option value="januari">Januari</option>
+                            <option value="februari">Februari</option>
+                            <option value="maret">Maret</option>
+                            <option value="april">April</option>
+                            <option value="mei">Mei</option>
+                            <option value="juni">Juni</option>
+                            <option value="juli">Juli</option>
+                            <option value="agustus">Agustus</option>
+                            <option value="september">September</option>
+                            <option value="oktober">Oktober</option>
+                            <option value="november">November</option>
+                            <option value="desember">Desember</option>
+                        </select>
+                        <select id="filter-history-year" onchange="window.renderHistoryTable()" class="flex-1 md:flex-none py-2.5 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-[#2c5282] transition-all shadow-sm cursor-pointer min-w-[100px]">
+                            <option value="">Semua Tahun</option>
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
+                            <option value="2026">2026</option>
+                            <option value="2027">2027</option>
+                            <option value="2028">2028</option>
+                            <option value="2029">2029</option>
+                            <option value="2030">2030</option>
+                        </select>
                     </div>
                 </div>
-                <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead class="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold"><tr><th class="px-6 py-4">Karyawan</th><th class="px-6 py-4">Periode</th><th class="px-6 py-4">Hasil</th><th class="px-6 py-4 text-center">Aksi</th></tr></thead><tbody id="history-body"></tbody></table></div>
             </div>
-        </div>
-    </div>
+            <div class="overflow-x-auto"><table class="w-full text-left"><thead class="bg-slate-50 text-[8px] font-black uppercase text-slate-400 tracking-[0.3em]"><tr><th class="px-8 py-5 text-xs">Karyawan</th><th class="px-8 py-5 text-xs">Periode</th><th class="px-8 py-5 text-xs">Hasil</th><th class="px-8 py-5 text-center text-xs">Aksi</th></tr></thead><tbody id="history-body"></tbody></table></div>
+        </section>
 
-    <!-- MODAL EDIT -->
-    <div id="edit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4 hidden">
-        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-4">
-            <h3 class="text-xl font-bold">Edit Profile Karyawan</h3>
-            <div class="space-y-4 text-left">
-                <div><label class="text-[10px] font-bold text-slate-400 uppercase">Nama Lengkap</label><input type="text" id="edit-emp-name" class="w-full border rounded-xl px-4 py-3 outline-none focus:border-indigo-500"></div>
-                <div><label class="text-[10px] font-bold text-slate-400 uppercase">Jabatan</label><input type="text" id="edit-emp-pos" class="w-full border rounded-xl px-4 py-3 outline-none focus:border-indigo-500"></div>
-                <div><label class="text-[10px] font-bold text-slate-400 uppercase">Status Keaktifan</label><select id="edit-emp-status" class="w-full border rounded-xl px-4 py-3 outline-none"><option value="true">Aktif</option><option value="false">Tidak Aktif</option></select></div>
-                <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase">Upload Foto Profile</label>
-                    <input type="file" id="edit-emp-photo" accept=".jpg,.jpeg,.png" class="w-full border border-dashed border-slate-300 rounded-xl px-4 py-3 bg-slate-50 text-xs font-medium cursor-pointer hover:bg-slate-100">
+        <section id="management-view" class="hidden bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden min-h-[500px]">
+            <div class="p-8 bg-slate-50/50 border-b flex flex-col gap-6">
+                <div class="flex justify-between items-center">
+                    <div class="font-black text-[#1a365d] flex items-center gap-4 uppercase tracking-[0.2em] text-[10px]">
+                        <i data-lucide="users" class="w-4 h-4 text-[#2c5282]"></i> Manajemen Karyawan
+                    </div>
+                    <button onclick="openAddEmployeeModal()" class="px-5 py-2.5 bg-[#2c5282] text-white rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg hover:scale-105 transition-all">
+                        <i data-lucide="plus" class="w-3 h-3"></i> Tambah Karyawan
+                    </button>
+                </div>
+                <div class="relative w-full">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="filter-manage-name" oninput="window.renderManagementTable()" placeholder="Cari nama atau jabatan karyawan..." class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-[#2c5282] transition-all shadow-sm">
                 </div>
             </div>
-            <div class="flex gap-3 pt-4"><button onclick="document.getElementById('edit-modal').classList.add('hidden')" class="flex-1 py-3 font-bold text-slate-400">Batal</button><button onclick="saveEmployeeData()" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold">Simpan</button></div>
-        </div>
+            <div class="overflow-x-auto"><table class="w-full text-left"><thead class="bg-slate-50 text-[8px] font-black uppercase text-slate-400 tracking-[0.3em]"><tr><th class="px-8 py-5 text-xs">Profil</th><th class="px-8 py-5 text-xs">Status</th><th class="px-8 py-5 text-center text-xs">Tindakan</th></tr></thead><tbody id="management-body"></tbody></table></div>
+        </section>
     </div>
 
-    <!-- ALERT MODAL -->
-    <div id="alert-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 hidden">
-        <div class="bg-white rounded-3xl p-8 max-sm w-full shadow-2xl text-center space-y-4">
-            <h3 class="text-xl font-bold text-slate-800">Belum Lengkap!</h3>
-            <p class="text-slate-500">Lengkapi seluruh 31 kriteria penilaian.</p>
-            <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold">Siap!</button>
-        </div>
-    </div>
+    <!-- MODALS -->
+    <div id="add-employee-modal" class="fixed inset-0 bg-[#1a365d]/40 bg-glass flex items-center justify-center z-[700] p-4 hidden opacity-0 transition-opacity duration-300"><div class="modal-content bg-white rounded-[2.5rem] p-10 max-w-lg w-full shadow-2xl space-y-6 scale-95 opacity-0 translate-y-4"><h3 class="text-xl font-black text-[#1a365d] tracking-tighter uppercase text-center">Tambah Karyawan Baru</h3><form id="add-emp-form" class="space-y-4"><div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label><input type="text" id="add-emp-name" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-[#2c5282] text-sm"></div><div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Jabatan</label><input type="text" id="add-emp-pos" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-[#2c5282] text-sm"></div><div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal Bergabung</label><input type="date" id="add-emp-joindate" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-[#2c5282] text-sm"></div><div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Foto Profil</label><input type="file" id="add-emp-photo" class="w-full text-[10px] mt-2 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-indigo-50 file:text-[#2c5282]"></div></form><div class="flex gap-4 pt-2"><button onclick="closeModal('add-employee-modal')" class="flex-1 py-4 font-black text-slate-400 uppercase text-[10px] tracking-widest">Batal</button><button onclick="addNewEmployee()" class="flex-1 py-4 bg-[#2c5282] text-white rounded-2xl font-black shadow-xl tracking-widest text-[10px] uppercase">Simpan</button></div></div></div>
+    
+    <!-- EDIT MODAL (FOR MANAGEMENT) -->
+    <div id="edit-modal" class="fixed inset-0 bg-[#1a365d]/40 bg-glass flex items-center justify-center z-[700] p-4 hidden opacity-0 transition-opacity duration-300"><div class="modal-content bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl space-y-6 scale-95 opacity-0 translate-y-4"><h3 class="text-xl font-black text-[#1a365d] tracking-tighter text-center uppercase">Edit Profile Karyawan</h3><div class="space-y-4"><div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label><input type="text" id="edit-emp-name" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-[#2c5282] text-sm"></div><div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Jabatan Baru</label><input type="text" id="edit-emp-pos" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-[#2c5282] text-sm"></div><div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal Bergabung</label><input type="date" id="edit-emp-joindate" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-[#2c5282] text-sm"></div><div class="grid grid-cols-2 gap-4"><div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Status Keaktifan</label><select id="edit-emp-status" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none text-sm"><option value="true">AKTIF</option><option value="false">NON-AKTIF</option></select></div><div><label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 text-xs">Ubah Foto</label><input type="file" id="edit-emp-photo" class="w-full text-[10px] mt-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:bg-indigo-50 file:text-[#2c5282]"></div></div></div><div class="flex gap-4 pt-2"><button onclick="closeModal('edit-modal')" class="flex-1 py-4 font-black text-slate-400 uppercase text-[10px] tracking-widest">Batal</button><button onclick="saveEmployeeData()" class="flex-1 py-4 bg-gradient-to-r from-[#2c5282] to-[#1a365d] text-white rounded-2xl font-black shadow-xl tracking-widest text-[10px] uppercase">Simpan</button></div></div></div>
+    
+    <div id="alert-modal" class="fixed inset-0 bg-[#1a365d]/40 bg-glass flex items-center justify-center z-[700] p-4 hidden opacity-0 transition-opacity duration-300"><div class="modal-content bg-white rounded-[2.5rem] p-10 max-w-sm w-full shadow-2xl text-center space-y-6 scale-95 opacity-0 translate-y-4"><div class="bg-rose-100 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto text-rose-500"><i data-lucide="alert-triangle" class="w-8 h-8"></i></div><h3 class="text-xl font-black text-slate-800 tracking-tighter uppercase">Incompleted!</h3><p class="text-slate-500 font-medium leading-relaxed text-xs">Isi seluruh kriteria penilaian sebelum melakukan sinkronisasi database.</p><button onclick="closeModal('alert-modal')" class="w-full py-4 bg-[#1a365d] text-white rounded-2xl font-black shadow-xl uppercase tracking-widest text-[10px]">Resume</button></div></div>
+    
+    <!-- DELETE CONFIRM MODAL -->
+    <div id="delete-confirm-modal" class="fixed inset-0 bg-[#1a365d]/40 bg-glass flex items-center justify-center z-[700] p-4 hidden opacity-0 transition-opacity duration-300"><div class="modal-content bg-white rounded-[2.5rem] p-10 max-w-sm w-full shadow-2xl text-center space-y-6 scale-95 opacity-0 translate-y-4"><div class="bg-rose-100 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto text-rose-500"><i data-lucide="trash-2" class="w-8 h-8"></i></div><h3 class="text-xl font-black text-slate-800 tracking-tighter uppercase">Konfirmasi Hapus</h3><p class="text-slate-500 font-medium leading-relaxed text-xs">Hapus data karyawan ini secara permanen? Tindakan ini tidak dapat dibatalkan.</p><div class="flex gap-4 pt-2"><button onclick="closeModal('delete-confirm-modal')" class="flex-1 py-4 font-black text-slate-400 uppercase text-[10px] tracking-widest">Batal</button><button onclick="confirmDeleteEmployee()" class="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black shadow-xl tracking-widest text-[10px] uppercase hover:bg-rose-600 transition-colors">Hapus</button></div></div></div>
 
+    <!-- PDF (Off-screen) -->
+    <div id="pdf-template">
+        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid black;padding-bottom:10px;"><div style="display:flex;align-items:center;gap:15px;"><svg width="50" height="50" viewBox="0 0 100 100"><path d="M50 10 L85 45 L50 80 L15 45 Z" fill="#2c5282" /><circle cx="50" cy="25" r="10" fill="#e9c46a" /><rect x="30" y="50" width="40" height="30" rx="2" fill="#e9c46a" /></svg><div><h1 style="font-size:18pt;margin:0;font-weight:bold;">API</h1><p style="font-size:9pt;font-weight:bold;margin:0;">YAYASAN AGUNG PUTRA IBRAHIM</p></div></div><div style="text-align:right;"><p style="font-size:10pt;font-weight:bold;margin:0;">SIFAT: RAHASIA</p></div></div><div style="text-align:center;margin:20px 0;"><h2 style="font-size:14pt;text-decoration:underline;margin:0;font-weight:bold;">FORM PENILAIAN KINERJA KARYAWAN</h2></div><table style="width:100%;font-weight:bold;margin-bottom:10px; font-size:10pt; border-collapse: collapse;"><tr><td style="width:100px; padding: 3px 0;">Unit Kerja</td><td style="border-bottom:1px dotted black;">: <span id="pdf-unit"></span></td><td style="width:100px; padding-left:15px;">Nama</td><td style="border-bottom:1px dotted black;">: <span id="pdf-nama"></span></td></tr><tr style="height:8px;"></tr><tr><td style="padding: 3px 0;">JABATAN</td><td style="border-bottom:1px dotted black;">: <span id="pdf-jabatan"></span></td><td style="width:100px; padding-left:15px;">Masa Kerja</td><td style="border-bottom:1px dotted black;">: <span id="pdf-masa"></span></td></tr></table><table class="pdf-table"><thead><tr style="text-align:center; background:#eee;"><th rowspan="2" style="width:30px;">No.</th><th rowspan="2">ASPEK PENILAIAN</th><th colspan="4">SKOR</th></tr><tr style="text-align:center;font-size:8pt; background:#eee;"><th style="width:40px;">A</th><th style="width:40px;">B</th><th style="width:40px;">C</th><th style="width:40px;">D</th></tr></thead><tbody id="pdf-table-body"></tbody><tfoot><tr style="background:#f9f9f9;"><td colspan="2" style="text-align:right;font-weight:bold; padding:8px;">TOTAL NILAI</td><td colspan="4" style="text-align:center;font-size:16pt;font-weight:bold; border:2px solid black;"><span id="pdf-total-skor"></span></td></tr></tfoot></table><div style="display:flex;justify-content:space-between;margin-top:20px;"><div style="width:45%;"><p style="font-weight:bold;font-size:9pt;margin-bottom:5px;">KLASIFIKASI NILAI</p><table class="pdf-table" style="font-size:8pt;text-align:center;"><tr style="background:#f2f2f2;"><th>MUTU</th><th>BOBOT</th><th>KUALITAS</th></tr><tr><td>A</td><td>511-680</td><td>SANGAT BAIK</td></tr><tr><td>B</td><td>341-510</td><td>BAIK</td></tr><tr><td>C</td><td>171-340</td><td>CUKUP</td></tr><tr><td>D</td><td>0-170</td><td>BURUK</td></tr></table></div><div style="width:35%;border:2px solid black;text-align:center;padding:10px;"><p style="font-weight:bold;margin-bottom:10px;font-size:9pt;">NILAI AKHIR</p><div style="height:50px;"></div></div></div><div style="margin-top:40px;display:flex;justify-content:space-between;text-align:center;font-size:9pt;"><div style="width:30%;"><p>Mengetahui,</p><p>Ketua Yayasan</p><div style="height:60px;"></div><p style="text-decoration:underline;font-weight:bold;">apt. Seviana, M.Si</p></div><div style="width:30%;"><p>&nbsp;</p><p>ATASAN LANGSUNG</p><div style="height:60px;"></div><p>(................................................)</p></div><div style="width:30%;"><p>&nbsp;</p><p>ATASAN TIDAK LANGSUNG</p><div style="height:60px;"></div><p>(................................................)</p></div></div>
+    </div>
 </body>
 </html>
