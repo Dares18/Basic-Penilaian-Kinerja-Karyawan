@@ -829,7 +829,9 @@
                     grade: gradeInfo.grade,
                     quality: gradeInfo.label,
                     individualScores: currentScores,
-                    createdAt: Date.now()
+                    createdAt: Date.now(),
+                    assessorId: currentUserRole?.id || 'unknown',
+                    assessorName: currentUserRole?.label || 'Admin / Sistem'
                 });
                 showToast("Berhasil Disimpan!");
                 window.resetForm();
@@ -953,7 +955,13 @@
                 const periodStr = item.period.toLowerCase();
                 const matchMonth = monthFilter === '' ? true : periodStr.includes(monthFilter);
                 const matchYear = yearFilter === '' ? true : periodStr.includes(yearFilter);
-                return matchName && matchMonth && matchYear;
+                
+                let matchRoleAccess = true;
+                if (currentUserRole && Array.isArray(currentUserRole.restrictedEmployees)) {
+                    matchRoleAccess = currentUserRole.restrictedEmployees.includes(item.employeeId);
+                }
+
+                return matchName && matchMonth && matchYear && matchRoleAccess;
             });
 
             filtered = filtered.sort((a, b) => b.createdAt - a.createdAt);
@@ -965,6 +973,9 @@
                     <td class="px-4 md:px-6 py-4 min-w-[150px]">
                         <p class="font-bold text-slate-800 text-xs">${item.employeeName}</p>
                         <p class="text-[8px] md:text-[9px] text-slate-400 font-black uppercase">${item.position}</p>
+                    </td>
+                    <td class="px-4 md:px-6 py-4 min-w-[120px]">
+                        <p class="font-bold text-[#2c5282] text-[10px] uppercase">${item.assessorName || 'Admin / Unknown'}</p>
                     </td>
                     <td class="px-4 md:px-6 py-4 text-xs text-slate-600 font-medium">${item.period}</td>
                     <td class="px-4 md:px-6 py-4">
@@ -978,7 +989,7 @@
                         </div>
                     </td>
                 </tr>
-            `).join('') : '<tr><td colspan="4" class="p-10 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Data Kosong / Tidak Ditemukan</td></tr>';
+            `).join('') : '<tr><td colspan="5" class="p-10 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Data Kosong / Tidak Ditemukan</td></tr>';
             
             if (typeof lucide !== 'undefined') lucide.createIcons();
         };
@@ -1208,7 +1219,20 @@
                     </div>
                 </div>
             </div>
-            <div class="overflow-x-auto"><table class="w-full text-left"><thead class="bg-slate-50 text-[8px] font-black uppercase text-slate-400 tracking-[0.3em]"><tr><th class="px-4 md:px-8 py-4 md:py-5 text-xs">Karyawan</th><th class="px-4 md:px-8 py-4 md:py-5 text-xs">Periode</th><th class="px-4 md:px-8 py-4 md:py-5 text-xs">Hasil</th><th class="px-4 md:px-8 py-4 md:py-5 text-center text-xs">Aksi</th></tr></thead><tbody id="history-body"></tbody></table></div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 text-[8px] font-black uppercase text-slate-400 tracking-[0.3em]">
+                        <tr>
+                            <th class="px-4 md:px-8 py-4 md:py-5 text-xs">Karyawan</th>
+                            <th class="px-4 md:px-8 py-4 md:py-5 text-xs">Penilai</th>
+                            <th class="px-4 md:px-8 py-4 md:py-5 text-xs">Periode</th>
+                            <th class="px-4 md:px-8 py-4 md:py-5 text-xs">Hasil</th>
+                            <th class="px-4 md:px-8 py-4 md:py-5 text-center text-xs">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body"></tbody>
+                </table>
+            </div>
         </section>
 
         <section id="management-view" class="hidden bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden min-h-[500px]">
