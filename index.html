@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -29,9 +30,9 @@
         const appId = 'performance-appraisal-001';
         
         const INITIAL_ROLES = [
-            { id: "role_1", pin: "1234", label: "Super Admin", canDelete: true, canEditProfile: true, canManage: true, canManageRoles: true, canPrint: true, canFillForm: true, restrictedEmployees: null },
-            { id: "role_2", pin: "0987", label: "Admin", canDelete: false, canEditProfile: true, canManage: true, canManageRoles: true, canPrint: true, canFillForm: true, restrictedEmployees: null },
-            { id: "role_3", pin: "1111", label: "Prof. Dr. Denny Nugroho Sugianto", canDelete: false, canEditProfile: false, canManage: false, canManageRoles: false, canPrint: false, canFillForm: true, restrictedEmployees: null }
+            { id: "role_1", pin: "1234", label: "Super Admin", canDelete: true, canEditProfile: true, canManage: true, canManageRoles: true, canPrint: true, canFillForm: true, canViewChartAll: true, canViewChartAkad: true, canViewChartNonAkad: true, restrictedEmployees: null },
+            { id: "role_2", pin: "0987", label: "Admin", canDelete: false, canEditProfile: true, canManage: true, canManageRoles: true, canPrint: true, canFillForm: true, canViewChartAll: true, canViewChartAkad: true, canViewChartNonAkad: true, restrictedEmployees: null },
+            { id: "role_3", pin: "1111", label: "Prof. Dr. Denny Nugroho Sugianto", canDelete: false, canEditProfile: false, canManage: false, canManageRoles: false, canPrint: false, canFillForm: true, canViewChartAll: true, canViewChartAkad: true, canViewChartNonAkad: true, restrictedEmployees: null }
         ];
 
         const INITIAL_EMPLOYEES = [
@@ -476,6 +477,11 @@
             document.getElementById('role-canmanageroles').checked = currentEditingRole ? currentEditingRole.canManageRoles : false;
             document.getElementById('role-canprint').checked = currentEditingRole ? currentEditingRole.canPrint : false;
 
+            // Chart Access Config
+            document.getElementById('role-chart-all').checked = currentEditingRole ? (currentEditingRole.canViewChartAll !== false) : true;
+            document.getElementById('role-chart-akad').checked = currentEditingRole ? (currentEditingRole.canViewChartAkad !== false) : true;
+            document.getElementById('role-chart-non').checked = currentEditingRole ? (currentEditingRole.canViewChartNonAkad !== false) : true;
+
             // Setup Restriksi (Aman untuk undefined property)
             const isAllEmployees = currentEditingRole ? (!currentEditingRole.restrictedEmployees || !Array.isArray(currentEditingRole.restrictedEmployees)) : true;
             document.getElementById('role-all-employees').checked = isAllEmployees;
@@ -526,6 +532,9 @@
                 canManage: document.getElementById('role-canmanage').checked,
                 canManageRoles: document.getElementById('role-canmanageroles').checked,
                 canPrint: document.getElementById('role-canprint').checked,
+                canViewChartAll: document.getElementById('role-chart-all').checked,
+                canViewChartAkad: document.getElementById('role-chart-akad').checked,
+                canViewChartNonAkad: document.getElementById('role-chart-non').checked,
                 restrictedEmployees: canFillForm ? restrictedEmployees : null
             };
 
@@ -602,6 +611,9 @@
                                 ${role.canManage ? '<span class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded text-[8px] font-black uppercase">Mgmt</span>' : ''}
                                 ${role.canManageRoles ? '<span class="bg-amber-50 text-amber-600 px-2 py-1 rounded text-[8px] font-black uppercase">Role</span>' : ''}
                                 ${role.canPrint ? '<span class="bg-blue-50 text-blue-600 px-2 py-1 rounded text-[8px] font-black uppercase">Print</span>' : ''}
+                                ${(role.canViewChartAll !== false) ? '<span class="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-[8px] font-black uppercase">Grafik: Semua</span>' : ''}
+                                ${(role.canViewChartAkad !== false) ? '<span class="bg-blue-50 text-blue-600 px-2 py-1 rounded text-[8px] font-black uppercase">Grafik: Dosen</span>' : ''}
+                                ${(role.canViewChartNonAkad !== false) ? '<span class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded text-[8px] font-black uppercase">Grafik: Tendik</span>' : ''}
                                 ${(role.canFillForm === false && !role.canDelete && !role.canEditProfile && !role.canManage && !role.canManageRoles && !role.canPrint) ? '<span class="bg-slate-100 text-slate-400 px-2 py-1 rounded text-[8px] font-black uppercase">Read Only</span>' : ''}
                             </div>
                         </div>
@@ -890,6 +902,65 @@
             updateUIState();
         };
 
+        window.openEmployeeHistoryModal = (employeeId, fallbackName, fallbackPos) => {
+            const emp = EMPLOYEE_DB.find(e => e.id == employeeId);
+            const name = emp ? emp.name : fallbackName;
+            const pos = emp ? emp.position : fallbackPos;
+            const photo = emp?.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`;
+            const masaKerja = emp ? calculateMasaKerja(emp.joinDate) : '-';
+
+            document.getElementById('modal-detail-name').innerText = name;
+            document.getElementById('modal-detail-pos').innerText = pos;
+            document.getElementById('modal-detail-img').src = photo;
+            
+            const masaEl = document.getElementById('modal-detail-masa');
+            const masaText = document.getElementById('modal-detail-masa-text');
+            if (masaKerja !== '-') {
+                masaText.innerText = `${masaKerja}`;
+                masaEl.style.display = 'flex';
+            } else {
+                masaEl.style.display = 'none';
+            }
+
+            const empHistory = allHistoryData
+                .filter(h => h.employeeId === employeeId)
+                .sort((a, b) => a.createdAt - b.createdAt);
+
+            const labels = empHistory.map(h => h.period);
+            const scores = empHistory.map(h => parseInt(h.score) || 0);
+
+            const ctx = document.getElementById('detailEmpChart');
+            if (ctx) {
+                if (window.detailEmpChartInstance) window.detailEmpChartInstance.destroy();
+                Chart.defaults.font.family = 'inherit';
+                window.detailEmpChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{ 
+                            label: 'Skor Penilaian', 
+                            data: scores, 
+                            borderColor: '#2c5282', 
+                            backgroundColor: 'rgba(44, 82, 130, 0.1)', 
+                            tension: 0.4, 
+                            fill: true, 
+                            pointRadius: 5, 
+                            pointHoverRadius: 7, 
+                            borderWidth: 3 
+                        }]
+                    },
+                    options: {
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true, max: 680, ticks: { font: { size: 10, weight: 'bold' } } }, x: { ticks: { font: { size: 10, weight: 'bold' } } } },
+                        plugins: { legend: { display: false } },
+                        interaction: { intersect: false, mode: 'index' }
+                    }
+                });
+            }
+            openModal('employee-detail-modal');
+        };
+
         window.handleDeleteAssessment = (id) => {
             if (!currentUserRole || !currentUserRole.canDelete) return;
             assessmentToDelete = id;
@@ -967,30 +1038,172 @@
             filtered = filtered.sort((a, b) => b.createdAt - a.createdAt);
             
             const tbody = document.getElementById('history-body');
-            if (!tbody) return;
-            tbody.innerHTML = filtered.length ? filtered.map(item => `
-                <tr class="hover:bg-slate-50 border-b border-slate-100 transition-colors">
-                    <td class="px-4 md:px-6 py-4 min-w-[150px]">
-                        <p class="font-bold text-slate-800 text-xs">${item.employeeName}</p>
-                        <p class="text-[8px] md:text-[9px] text-slate-400 font-black uppercase">${item.position}</p>
-                    </td>
-                    <td class="px-4 md:px-6 py-4 min-w-[120px]">
-                        <p class="font-bold text-[#2c5282] text-[10px] uppercase">${item.assessorName || 'Admin / Unknown'}</p>
-                    </td>
-                    <td class="px-4 md:px-6 py-4 text-xs text-slate-600 font-medium">${item.period}</td>
-                    <td class="px-4 md:px-6 py-4">
-                        <span class="px-2 py-0.5 rounded text-white font-black text-[8px] md:text-[9px] ${getGradeInfo(item.score).color}">${item.grade}</span> 
-                        <span class="font-black ml-1 md:ml-2 text-xs">${item.score}</span>
-                    </td>
-                    <td class="px-4 md:px-6 py-4 text-center">
-                        <div class="flex items-center justify-center gap-2 md:gap-3">
-                            ${currentUserRole?.canPrint ? `<button onclick="window.handlePrintPDF('${item.id}')" class="text-[#2c5282] p-1 md:p-1.5 hover:scale-110 transition-transform"><i data-lucide="printer" class="w-4 h-4"></i></button>` : ''}
-                            ${currentUserRole?.canDelete ? `<button onclick="window.handleDeleteAssessment('${item.id}')" class="text-slate-300 hover:text-rose-500 p-1 md:p-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
-                        </div>
-                    </td>
-                </tr>
-            `).join('') : '<tr><td colspan="5" class="p-10 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Data Kosong / Tidak Ditemukan</td></tr>';
-            
+            if (tbody) {
+                tbody.innerHTML = filtered.length ? filtered.map(item => `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100 transition-colors">
+                        <td class="px-4 md:px-6 py-4 min-w-[150px] cursor-pointer group" onclick="window.openEmployeeHistoryModal('${item.employeeId}', '${item.employeeName}', '${item.position}')">
+                            <p class="font-bold text-slate-800 group-hover:text-[#2c5282] transition-colors text-xs flex items-center gap-1.5">${item.employeeName} <i data-lucide="external-link" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity"></i></p>
+                            <p class="text-[8px] md:text-[9px] text-slate-400 font-black uppercase mt-0.5">${item.position}</p>
+                        </td>
+                        <td class="px-4 md:px-6 py-4 min-w-[120px]">
+                            <p class="font-bold text-[#2c5282] text-[10px] uppercase">${item.assessorName || 'Admin / Unknown'}</p>
+                        </td>
+                        <td class="px-4 md:px-6 py-4 text-xs text-slate-600 font-medium">${item.period}</td>
+                        <td class="px-4 md:px-6 py-4">
+                            <span class="px-2 py-0.5 rounded text-white font-black text-[8px] md:text-[9px] ${getGradeInfo(item.score).color}">${item.grade}</span> 
+                            <span class="font-black ml-1 md:ml-2 text-xs">${item.score}</span>
+                        </td>
+                        <td class="px-4 md:px-6 py-4 text-center">
+                            <div class="flex items-center justify-center gap-2 md:gap-3">
+                                ${currentUserRole?.canPrint ? `<button onclick="window.handlePrintPDF('${item.id}')" class="text-[#2c5282] p-1 md:p-1.5 hover:scale-110 transition-transform"><i data-lucide="printer" class="w-4 h-4"></i></button>` : ''}
+                                ${currentUserRole?.canDelete ? `<button onclick="window.handleDeleteAssessment('${item.id}')" class="text-slate-300 hover:text-rose-500 p-1 md:p-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `).join('') : '<tr><td colspan="5" class="p-10 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">Data Kosong / Tidak Ditemukan</td></tr>';
+            }
+
+            // Analytics Configuration Checking
+            const canAll = currentUserRole?.canViewChartAll !== false; 
+            const canAkad = currentUserRole?.canViewChartAkad !== false;
+            const canNon = currentUserRole?.canViewChartNonAkad !== false;
+
+            const wrapper = document.getElementById('analytics-wrapper');
+            if (wrapper) wrapper.style.display = (canAll || canAkad || canNon) ? 'flex' : 'none';
+
+            const containerAll = document.getElementById('container-chart-all');
+            if (containerAll) containerAll.style.display = canAll ? 'flex' : 'none';
+
+            const cardAkad = document.getElementById('stat-card-akad');
+            const containerAkad = document.getElementById('container-chart-akad');
+            if (cardAkad) cardAkad.style.display = canAkad ? 'block' : 'none';
+            if (containerAkad) containerAkad.style.display = canAkad ? 'flex' : 'none';
+
+            const cardNon = document.getElementById('stat-card-non');
+            const containerNon = document.getElementById('container-chart-non');
+            if (cardNon) cardNon.style.display = canNon ? 'block' : 'none';
+            if (containerNon) containerNon.style.display = canNon ? 'flex' : 'none';
+
+            // Data Processing
+            let akadCount = 0, akadSum = 0;
+            let nonCount = 0, nonSum = 0;
+
+            filtered.forEach(item => {
+                const pos = (item.position || '').toLowerCase();
+                if (pos.includes('kaprodi') || pos.includes('dosen')) {
+                    akadCount++;
+                    akadSum += parseInt(item.score) || 0;
+                } else {
+                    nonCount++;
+                    nonSum += parseInt(item.score) || 0;
+                }
+            });
+
+            const akadAvg = akadCount > 0 ? Math.round(akadSum / akadCount) : 0;
+            const nonAvg = nonCount > 0 ? Math.round(nonSum / nonCount) : 0;
+            const akadGradeInfo = getGradeInfo(akadAvg);
+            const nonGradeInfo = getGradeInfo(nonAvg);
+
+            const statAkadCount = document.getElementById('stat-akad-count');
+            const statAkadScore = document.getElementById('stat-akad-score');
+            const statAkadGrade = document.getElementById('stat-akad-grade');
+            if (statAkadCount) statAkadCount.innerText = akadCount;
+            if (statAkadScore) statAkadScore.innerText = akadCount > 0 ? akadAvg : '-';
+            if (statAkadGrade) {
+                statAkadGrade.innerText = akadCount > 0 ? akadGradeInfo.grade : '-';
+                statAkadGrade.className = `px-2 py-0.5 rounded text-white font-black text-[9px] ${akadCount > 0 ? akadGradeInfo.color : 'bg-slate-300'}`;
+            }
+
+            const statNonCount = document.getElementById('stat-non-count');
+            const statNonScore = document.getElementById('stat-non-score');
+            const statNonGrade = document.getElementById('stat-non-grade');
+            if (statNonCount) statNonCount.innerText = nonCount;
+            if (statNonScore) statNonScore.innerText = nonCount > 0 ? nonAvg : '-';
+            if (statNonGrade) {
+                statNonGrade.innerText = nonCount > 0 ? nonGradeInfo.grade : '-';
+                statNonGrade.className = `px-2 py-0.5 rounded text-white font-black text-[9px] ${nonCount > 0 ? nonGradeInfo.color : 'bg-slate-300'}`;
+            }
+
+            // Chart Rendering Logic
+            const periodMap = {};
+            filtered.forEach(item => {
+                if (!periodMap[item.period]) {
+                    periodMap[item.period] = { timestamp: item.createdAt, akadSum: 0, akadCount: 0, nonSum: 0, nonCount: 0, totalSum: 0, totalCount: 0 };
+                }
+                const score = parseInt(item.score) || 0;
+                const pos = (item.position || '').toLowerCase();
+                
+                periodMap[item.period].totalSum += score;
+                periodMap[item.period].totalCount++;
+
+                if (pos.includes('kaprodi') || pos.includes('dosen')) {
+                    periodMap[item.period].akadSum += score;
+                    periodMap[item.period].akadCount++;
+                } else {
+                    periodMap[item.period].nonSum += score;
+                    periodMap[item.period].nonCount++;
+                }
+            });
+
+            const sortedPeriods = Object.keys(periodMap).sort((a, b) => periodMap[a].timestamp - periodMap[b].timestamp);
+            const labels = sortedPeriods;
+            const allData = sortedPeriods.map(p => periodMap[p].totalCount > 0 ? Math.round(periodMap[p].totalSum / periodMap[p].totalCount) : null);
+            const akadData = sortedPeriods.map(p => periodMap[p].akadCount > 0 ? Math.round(periodMap[p].akadSum / periodMap[p].akadCount) : null);
+            const nonData = sortedPeriods.map(p => periodMap[p].nonCount > 0 ? Math.round(periodMap[p].nonSum / periodMap[p].nonCount) : null);
+
+            Chart.defaults.font.family = 'inherit';
+            const commonChartOptions = {
+                responsive: true, maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, max: 680, ticks: { font: { size: 10, weight: 'bold' } } }, x: { ticks: { font: { size: 10, weight: 'bold' } } } },
+                plugins: { legend: { display: false } },
+                interaction: { intersect: false, mode: 'index' }
+            };
+
+            if (canAll) {
+                const ctxAll = document.getElementById('allChart');
+                if (ctxAll) {
+                    if (window.allChartInstance) window.allChartInstance.destroy();
+                    window.allChartInstance = new Chart(ctxAll, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{ label: 'Skor Rata-Rata Keseluruhan', data: allData, borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.1)', tension: 0.4, fill: true, spanGaps: true, pointRadius: 4, pointHoverRadius: 6, borderWidth: 3 }]
+                        },
+                        options: commonChartOptions
+                    });
+                }
+            }
+
+            if (canAkad) {
+                const ctxAkad = document.getElementById('akadChart');
+                if (ctxAkad) {
+                    if (window.akadChartInstance) window.akadChartInstance.destroy();
+                    window.akadChartInstance = new Chart(ctxAkad, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{ label: 'Skor Akademik', data: akadData, borderColor: '#2c5282', backgroundColor: 'rgba(44, 82, 130, 0.1)', tension: 0.4, fill: true, spanGaps: true, pointRadius: 4, pointHoverRadius: 6, borderWidth: 3 }]
+                        },
+                        options: commonChartOptions
+                    });
+                }
+            }
+
+            if (canNon) {
+                const ctxNon = document.getElementById('nonChart');
+                if (ctxNon) {
+                    if (window.nonChartInstance) window.nonChartInstance.destroy();
+                    window.nonChartInstance = new Chart(ctxNon, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{ label: 'Skor Non-Akademik', data: nonData, borderColor: '#059669', backgroundColor: 'rgba(5, 150, 105, 0.1)', tension: 0.4, fill: true, spanGaps: true, pointRadius: 4, pointHoverRadius: 6, borderWidth: 3 }]
+                        },
+                        options: commonChartOptions
+                    });
+                }
+            }
+
             if (typeof lucide !== 'undefined') lucide.createIcons();
         };
 
@@ -1004,6 +1217,18 @@
             }
             onSnapshot(roleCol, (snap) => {
                 ROLE_DB = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                
+                if (currentUserRole) {
+                    const updatedRole = ROLE_DB.find(r => r.id === currentUserRole.id);
+                    if (updatedRole) {
+                        currentUserRole = updatedRole;
+                        updateUIState();
+                        if (!document.getElementById('history-view').classList.contains('hidden')) {
+                            window.renderHistoryTable();
+                        }
+                    }
+                }
+
                 if (!document.getElementById('management-view').classList.contains('hidden') && currentManageTab === 'role') {
                     window.renderRoleTable();
                 }
@@ -1233,6 +1458,61 @@
                     <tbody id="history-body"></tbody>
                 </table>
             </div>
+            
+            <div id="analytics-wrapper" class="p-5 md:p-8 bg-slate-50 border-t flex flex-col gap-4 hidden">
+                <div class="font-black text-[#1a365d] flex items-center gap-3 uppercase tracking-[0.2em] text-[10px]"><i data-lucide="bar-chart-2" class="w-4 h-4 text-[#2c5282]"></i> Analisis Rata-Rata Performa</div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div id="stat-card-akad" class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hidden">
+                        <div class="bg-indigo-50/50 p-3 border-b border-slate-100 text-[9px] font-black uppercase text-[#2c5282] tracking-widest text-center">Akademik (Kaprodi / Dosen)</div>
+                        <div class="p-4 flex items-center justify-between">
+                            <div>
+                                <p class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Total Evaluasi</p>
+                                <p id="stat-akad-count" class="text-lg md:text-xl font-black text-slate-700">0</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rata-rata Skor</p>
+                                <div class="flex items-center gap-2 justify-end">
+                                    <span id="stat-akad-grade" class="px-2 py-0.5 rounded text-white font-black text-[9px] bg-slate-300">-</span>
+                                    <span id="stat-akad-score" class="font-black text-xl md:text-2xl text-[#2c5282]">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="stat-card-non" class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hidden">
+                        <div class="bg-emerald-50/50 p-3 border-b border-slate-100 text-[9px] font-black uppercase text-emerald-800 tracking-widest text-center">Non-Akademik (Tendik / Staff)</div>
+                        <div class="p-4 flex items-center justify-between">
+                            <div>
+                                <p class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Total Evaluasi</p>
+                                <p id="stat-non-count" class="text-lg md:text-xl font-black text-slate-700">0</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rata-rata Skor</p>
+                                <div class="flex items-center gap-2 justify-end">
+                                    <span id="stat-non-grade" class="px-2 py-0.5 rounded text-white font-black text-[9px] bg-slate-300">-</span>
+                                    <span id="stat-non-score" class="font-black text-xl md:text-2xl text-[#2c5282]">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="container-chart-all" class="mt-4 bg-white rounded-xl border border-slate-200 p-4 md:p-5 shadow-sm h-[250px] relative w-full flex flex-col hidden">
+                    <p class="text-[9px] md:text-[10px] font-black uppercase text-indigo-600 tracking-widest mb-2 flex items-center gap-2"><i data-lucide="trending-up" class="w-3 h-3"></i> Trend Kinerja Seluruh Karyawan APU</p>
+                    <div class="flex-1 min-h-0 relative"><canvas id="allChart"></canvas></div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div id="container-chart-akad" class="bg-white rounded-xl border border-slate-200 p-4 md:p-5 shadow-sm h-[250px] relative w-full flex flex-col hidden">
+                        <p class="text-[9px] md:text-[10px] font-black uppercase text-[#2c5282] tracking-widest mb-2 flex items-center gap-2"><i data-lucide="trending-up" class="w-3 h-3"></i> Trend Kinerja Dosen/Kaprodi</p>
+                        <div class="flex-1 min-h-0 relative"><canvas id="akadChart"></canvas></div>
+                    </div>
+                    <div id="container-chart-non" class="bg-white rounded-xl border border-slate-200 p-4 md:p-5 shadow-sm h-[250px] relative w-full flex flex-col hidden">
+                        <p class="text-[9px] md:text-[10px] font-black uppercase text-emerald-700 tracking-widest mb-2 flex items-center gap-2"><i data-lucide="trending-up" class="w-3 h-3"></i> Trend Kinerja Tendik/Staff</p>
+                        <div class="flex-1 min-h-0 relative"><canvas id="nonChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <section id="management-view" class="hidden bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden min-h-[500px]">
@@ -1283,13 +1563,20 @@
             <div><label class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">PIN (4 Digit)</label><input type="password" id="role-pin" maxlength="4" class="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-3 md:p-4 font-bold outline-none focus:border-[#2c5282] text-xs md:text-sm tracking-[0.5em]" placeholder="••••"></div>
             
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3 mt-4">
-                <label class="text-[8px] md:text-[9px] font-black text-[#2c5282] uppercase tracking-widest mb-2 block">Pengaturan Hak Akses</label>
+                <label class="text-[8px] md:text-[9px] font-black text-[#2c5282] uppercase tracking-widest mb-2 block">Pengaturan Hak Akses Dasar</label>
                 <label class="flex items-center gap-3 text-xs font-bold text-slate-600"><input type="checkbox" id="role-canfillform" onchange="toggleCakupanUI()"> Bisa Mengisi Form Penilaian</label>
                 <label class="flex items-center gap-3 text-xs font-bold text-slate-600"><input type="checkbox" id="role-candelete"> Bisa Hapus Data & Penilaian</label>
                 <label class="flex items-center gap-3 text-xs font-bold text-slate-600"><input type="checkbox" id="role-canedit"> Bisa Edit Profil Karyawan</label>
                 <label class="flex items-center gap-3 text-xs font-bold text-slate-600"><input type="checkbox" id="role-canmanage"> Bisa Akses Manajemen Karyawan</label>
                 <label class="flex items-center gap-3 text-xs font-bold text-slate-600"><input type="checkbox" id="role-canmanageroles"> Bisa Kelola Master Roles</label>
                 <label class="flex items-center gap-3 text-xs font-bold text-slate-600"><input type="checkbox" id="role-canprint"> Bisa Cetak PDF</label>
+            </div>
+
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3 mt-4">
+                <label class="text-[8px] md:text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-2 block">Hak Akses Grafik & Analisis</label>
+                <label class="flex items-center gap-3 text-xs font-bold text-slate-600"><input type="checkbox" id="role-chart-all"> Bisa Melihat Trend Keseluruhan</label>
+                <label class="flex items-center gap-3 text-xs font-bold text-slate-600"><input type="checkbox" id="role-chart-akad"> Bisa Melihat Trend Dosen/Kaprodi</label>
+                <label class="flex items-center gap-3 text-xs font-bold text-slate-600"><input type="checkbox" id="role-chart-non"> Bisa Melihat Trend Tendik/Staff</label>
             </div>
 
             <div id="cakupan-container" class="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3 mt-4">
@@ -1311,6 +1598,28 @@
     <div id="delete-role-confirm-modal" class="fixed inset-0 bg-[#1a365d]/60 backdrop-blur-sm flex items-center justify-center z-[700] p-4 hidden opacity-0 transition-opacity duration-300"><div class="modal-content bg-white rounded-[2rem] p-6 md:p-10 max-w-sm w-full shadow-2xl text-center space-y-4 md:space-y-6 scale-95 opacity-0 translate-y-4"><div class="bg-rose-100 w-12 h-12 md:w-16 md:h-16 rounded-2xl md:rounded-3xl flex items-center justify-center mx-auto text-rose-500"><i data-lucide="trash-2" class="w-6 h-6 md:w-8 md:h-8"></i></div><h3 class="text-lg md:text-xl font-black text-slate-800 tracking-tighter uppercase">Konfirmasi Hapus</h3><p class="text-slate-500 font-medium leading-relaxed text-[10px] md:text-xs">Hapus data role akses ini secara permanen? Akun dengan PIN tersebut tidak akan dapat login lagi.</p><div class="flex gap-3 md:gap-4 pt-2"><button onclick="closeModal('delete-role-confirm-modal')" class="flex-1 py-3 md:py-4 font-black text-slate-400 uppercase text-[9px] md:text-[10px] tracking-widest">Batal</button><button onclick="executeDeleteRole()" class="flex-1 py-3 md:py-4 bg-rose-500 text-white rounded-xl md:rounded-2xl font-black shadow-xl tracking-widest text-[9px] md:text-[10px] uppercase hover:bg-rose-600 transition-colors">Hapus Role</button></div></div></div>
 
     <div id="delete-assessment-confirm-modal" class="fixed inset-0 bg-[#1a365d]/60 backdrop-blur-sm flex items-center justify-center z-[700] p-4 hidden opacity-0 transition-opacity duration-300"><div class="modal-content bg-white rounded-[2rem] p-6 md:p-10 max-w-sm w-full shadow-2xl text-center space-y-4 md:space-y-6 scale-95 opacity-0 translate-y-4"><div class="bg-rose-100 w-12 h-12 md:w-16 md:h-16 rounded-2xl md:rounded-3xl flex items-center justify-center mx-auto text-rose-500"><i data-lucide="trash-2" class="w-6 h-6 md:w-8 md:h-8"></i></div><h3 class="text-lg md:text-xl font-black text-slate-800 tracking-tighter uppercase">Konfirmasi Hapus</h3><p class="text-slate-500 font-medium leading-relaxed text-[10px] md:text-xs">Hapus data penilaian ini secara permanen? Tindakan ini tidak dapat dibatalkan.</p><div class="flex gap-3 md:gap-4 pt-2"><button onclick="closeModal('delete-assessment-confirm-modal')" class="flex-1 py-3 md:py-4 font-black text-slate-400 uppercase text-[9px] md:text-[10px] tracking-widest">Batal</button><button onclick="confirmDeleteAssessment()" class="flex-1 py-3 md:py-4 bg-rose-500 text-white rounded-xl md:rounded-2xl font-black shadow-xl tracking-widest text-[9px] md:text-[10px] uppercase hover:bg-rose-600 transition-colors">Hapus</button></div></div></div>
+
+    <div id="employee-detail-modal" class="fixed inset-0 bg-[#1a365d]/60 backdrop-blur-sm flex items-center justify-center z-[700] p-4 hidden opacity-0 transition-opacity duration-300">
+        <div class="modal-content bg-white rounded-[2rem] p-6 md:p-8 max-w-2xl w-full shadow-2xl scale-95 opacity-0 translate-y-4 max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-start mb-6">
+                <div class="flex items-center gap-4">
+                    <img id="modal-detail-img" src="" alt="Profile" class="w-16 h-16 md:w-20 md:h-20 rounded-2xl object-cover border-2 border-slate-100 shadow-sm">
+                    <div>
+                        <h3 id="modal-detail-name" class="text-lg md:text-xl font-black text-[#1a365d] tracking-tighter leading-tight mb-2"></h3>
+                        <div class="flex flex-wrap gap-2">
+                            <span id="modal-detail-pos" class="bg-slate-100 px-3 py-1.5 rounded-xl text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-wider"></span>
+                            <span id="modal-detail-masa" class="bg-indigo-50 px-3 py-1.5 rounded-xl text-[8px] md:text-[9px] font-black text-[#2c5282] uppercase tracking-wider items-center gap-1" style="display: none;"><i data-lucide="clock" class="w-3 h-3"></i> <span id="modal-detail-masa-text"></span></span>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="closeModal('employee-detail-modal')" class="p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-500 rounded-xl transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-4 md:p-5 flex-1 min-h-[250px] md:min-h-[300px] flex flex-col border border-slate-100">
+                <p class="text-[9px] md:text-[10px] font-black uppercase text-[#2c5282] tracking-widest mb-3 flex items-center gap-2"><i data-lucide="trending-up" class="w-3 h-3"></i> Grafik Performa Karyawan</p>
+                <div class="flex-1 relative w-full"><canvas id="detailEmpChart"></canvas></div>
+            </div>
+        </div>
+    </div>
 
     <div id="pdf-template">
         <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid black;padding-bottom:10px;"><div style="display:flex;align-items:center;gap:15px;"><img src="Logo-APU.png" style="width:50px; height:50px; object-fit:contain;"><div><h1 style="font-size:18pt;margin:0;font-weight:bold;">API</h1><p style="font-size:9pt;font-weight:bold;margin:0;">YAYASAN AGUNG PUTRA IBRAHIM</p></div></div><div style="text-align:right;"><p style="font-size:10pt;font-weight:bold;margin:0;">SIFAT: RAHASIA</p></div></div><div style="text-align:center;margin:20px 0;"><h2 style="font-size:14pt;text-decoration:underline;margin:0;font-weight:bold;">FORM PENILAIAN KINERJA KARYAWAN</h2></div><table style="width:100%;font-weight:bold;margin-bottom:10px; font-size:10pt; border-collapse: collapse;"><tr><td style="width:100px; padding: 3px 0;">Unit Kerja</td><td style="border-bottom:1px dotted black;">: <span id="pdf-unit"></span></td><td style="width:100px; padding-left:15px;">Nama</td><td style="border-bottom:1px dotted black;">: <span id="pdf-nama"></span></td></tr><tr style="height:8px;"></tr><tr><td style="padding: 3px 0;">JABATAN</td><td style="border-bottom:1px dotted black;">: <span id="pdf-jabatan"></span></td><td style="width:100px; padding-left:15px;">Masa Kerja</td><td style="border-bottom:1px dotted black;">: <span id="pdf-masa"></span></td></tr></table><table class="pdf-table"><thead><tr style="text-align:center; background:#eee;"><th rowspan="2" style="width:30px;">No.</th><th rowspan="2">ASPEK PENILAIAN</th><th colspan="4">SKOR</th></tr><tr style="text-align:center;font-size:8pt; background:#eee;"><th style="width:40px;">A</th><th style="width:40px;">B</th><th style="width:40px;">C</th><th style="width:40px;">D</th></tr></thead><tbody id="pdf-table-body"></tbody><tfoot><tr style="background:#f9f9f9;"><td colspan="2" style="text-align:right;font-weight:bold; padding:8px;">TOTAL NILAI</td><td colspan="4" style="text-align:center;font-size:16pt;font-weight:bold; border:2px solid black;"><span id="pdf-total-skor"></span></td></tr></tfoot></table><div style="display:flex;justify-content:space-between;margin-top:20px;"><div style="width:45%;"><p style="font-weight:bold;font-size:9pt;margin-bottom:5px;">KLASIFIKASI NILAI</p><table class="pdf-table" style="font-size:8pt;text-align:center;"><tr style="background:#f2f2f2;"><th>MUTU</th><th>BOBOT</th><th>KUALITAS</th></tr><tr><td>A</td><td>511-680</td><td>SANGAT BAIK</td></tr><tr><td>B</td><td>341-510</td><td>BAIK</td></tr><tr><td>C</td><td>171-340</td><td>CUKUP</td></tr><tr><td>D</td><td>0-170</td><td>BURUK</td></tr></table></div><div style="width:35%;border:2px solid black;text-align:center;padding:10px;"><p style="font-weight:bold;margin-bottom:10px;font-size:9pt;">NILAI AKHIR</p><div style="height:50px;"></div></div></div><div style="margin-top:40px;display:flex;justify-content:space-between;text-align:center;font-size:9pt;"><div style="width:30%;"><p>Mengetahui,</p><p>Ketua Yayasan</p><div style="height:60px;"></div><p style="text-decoration:underline;font-weight:bold;">apt. Seviana, M.Si</p></div><div style="width:30%;"><p>&nbsp;</p><p>ATASAN LANGSUNG</p><div style="height:60px;"></div><p>(................................................)</p></div><div style="width:30%;"><p>&nbsp;</p><p>ATASAN TIDAK LANGSUNG</p><div style="height:60px;"></div><p>(................................................)</p></div></div>
