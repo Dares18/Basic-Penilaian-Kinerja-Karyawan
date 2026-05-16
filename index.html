@@ -4,14 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Penilaian Kinerja Karyawan - Prodi APU</title>
+    <link rel="icon" type="image/x-icon" href="Assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="Assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="Assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="Assets/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="Assets/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="Assets/android-chrome-512x512.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
         };
-        // Init theme before render to prevent flash
-        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        // Init theme: Default Light Mode mutlak. Hanya berubah jika user ubah manual.
+        if (localStorage.getItem('theme') === 'dark') {
             document.documentElement.classList.add('dark');
+        } else {
+            localStorage.setItem('theme', 'light');
+            document.documentElement.classList.remove('dark');
         }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -1412,14 +1421,14 @@
     </div>
 
     <div id="loading-overlay" class="fixed inset-0 bg-[#1a365d]/80 dark:bg-slate-950/80 bg-glass z-[500] flex flex-col items-center justify-center transition-all duration-500 hidden opacity-0">
-        <img src="Logo-APU.png" alt="Logo APU" class="w-24 h-24 md:w-32 md:h-32 object-contain animate-bounce drop-shadow-[0_10px_15px_rgba(233,196,106,0.3)]">
+        <img src="Assets/Logo-APU.png" alt="Logo APU" class="w-24 h-24 md:w-32 md:h-32 object-contain animate-bounce drop-shadow-[0_10px_15px_rgba(233,196,106,0.3)]">
         <p class="mt-8 text-[9px] font-black tracking-[0.5em] uppercase text-white animate-pulse">Initializing Terminal...</p>
     </div>
 
     <div id="login-view" class="fixed inset-0 bg-[#1a365d] dark:bg-slate-950 flex items-center justify-center p-4 z-[300] transition-colors duration-300">
         <div class="bg-white dark:bg-slate-800 rounded-[2rem] md:rounded-[2.5rem] p-8 md:p-10 max-w-sm w-full shadow-2xl text-center space-y-8 animate-in fade-in zoom-in duration-700">
             <div class="relative inline-block">
-                <img src="Logo-APU.png" alt="Logo APU" class="w-24 h-24 md:w-32 md:h-32 object-contain mx-auto drop-shadow-xl hover:scale-105 transition-transform duration-500">
+                <img src="Assets/Logo-APU.png" alt="Logo APU" class="w-24 h-24 md:w-32 md:h-32 object-contain mx-auto drop-shadow-xl hover:scale-105 transition-transform duration-500">
             </div>
             <div>
                 <h1 class="text-2xl font-black text-[#1a365d] dark:text-indigo-300 tracking-tighter">SDM APU</h1>
@@ -1434,7 +1443,7 @@
         <header class="bg-white/80 dark:bg-slate-800/80 bg-glass rounded-[1.2rem] md:rounded-[1.5rem] p-3 md:p-4 shadow-xl border border-white/40 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-3 md:gap-4 sticky top-4 z-[100] transition-colors">
             <div class="flex justify-between items-center w-full md:w-auto">
                 <div class="flex items-center gap-3">
-                    <img src="Logo-APU.png" alt="Logo APU" class="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-md">
+                    <img src="Assets/Logo-APU.png" alt="Logo APU" class="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-md">
                     <div><h1 class="font-black text-[#1a365d] dark:text-indigo-300 leading-none text-sm md:text-base">SDM APU</h1><span id="user-badge" class="text-[7px] md:text-[8px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-widest mt-1 block">Role</span></div>
                 </div>
                 <div class="md:hidden flex items-center gap-2">
@@ -1681,7 +1690,7 @@
     </div>
 
     <div id="pdf-template">
-        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid black;padding-bottom:10px;"><div style="display:flex;align-items:center;gap:15px;"><img src="Logo-APU.png" style="width:50px; height:50px; object-fit:contain;"><div><h1 style="font-size:18pt;margin:0;font-weight:bold;">API</h1><p style="font-size:9pt;font-weight:bold;margin:0;">YAYASAN AGUNG PUTRA IBRAHIM</p></div></div><div style="text-align:right;"><p style="font-size:10pt;font-weight:bold;margin:0;">SIFAT: RAHASIA</p></div></div><div style="text-align:center;margin:20px 0;"><h2 style="font-size:14pt;text-decoration:underline;margin:0;font-weight:bold;">FORM PENILAIAN KINERJA KARYAWAN</h2></div><table style="width:100%;font-weight:bold;margin-bottom:10px; font-size:10pt; border-collapse: collapse;"><tr><td style="width:100px; padding: 3px 0;">Unit Kerja</td><td style="border-bottom:1px dotted black;">: <span id="pdf-unit"></span></td><td style="width:100px; padding-left:15px;">Nama</td><td style="border-bottom:1px dotted black;">: <span id="pdf-nama"></span></td></tr><tr style="height:8px;"></tr><tr><td style="padding: 3px 0;">JABATAN</td><td style="border-bottom:1px dotted black;">: <span id="pdf-jabatan"></span></td><td style="width:100px; padding-left:15px;">Masa Kerja</td><td style="border-bottom:1px dotted black;">: <span id="pdf-masa"></span></td></tr></table><table class="pdf-table"><thead><tr style="text-align:center; background:#eee;"><th rowspan="2" style="width:30px;">No.</th><th rowspan="2">ASPEK PENILAIAN</th><th colspan="4">SKOR</th></tr><tr style="text-align:center;font-size:8pt; background:#eee;"><th style="width:40px;">A</th><th style="width:40px;">B</th><th style="width:40px;">C</th><th style="width:40px;">D</th></tr></thead><tbody id="pdf-table-body"></tbody><tfoot><tr style="background:#f9f9f9;"><td colspan="2" style="text-align:right;font-weight:bold; padding:8px;">TOTAL NILAI</td><td colspan="4" style="text-align:center;font-size:16pt;font-weight:bold; border:2px solid black;"><span id="pdf-total-skor"></span></td></tr></tfoot></table><div style="display:flex;justify-content:space-between;margin-top:20px;"><div style="width:45%;"><p style="font-weight:bold;font-size:9pt;margin-bottom:5px;">KLASIFIKASI NILAI</p><table class="pdf-table" style="font-size:8pt;text-align:center;"><tr style="background:#f2f2f2;"><th>MUTU</th><th>BOBOT</th><th>KUALITAS</th></tr><tr><td>A</td><td>511-680</td><td>SANGAT BAIK</td></tr><tr><td>B</td><td>341-510</td><td>BAIK</td></tr><tr><td>C</td><td>171-340</td><td>CUKUP</td></tr><tr><td>D</td><td>0-170</td><td>BURUK</td></tr></table></div><div style="width:35%;border:2px solid black;text-align:center;padding:10px;"><p style="font-weight:bold;margin-bottom:10px;font-size:9pt;">NILAI AKHIR</p><div style="height:50px;"></div></div></div><div style="margin-top:40px;display:flex;justify-content:space-between;text-align:center;font-size:9pt;"><div style="width:30%;"><p>Mengetahui,</p><p>Ketua Yayasan</p><div style="height:60px;"></div><p style="text-decoration:underline;font-weight:bold;">apt. Seviana, M.Si</p></div><div style="width:30%;"><p>&nbsp;</p><p>ATASAN LANGSUNG</p><div style="height:60px;"></div><p>(................................................)</p></div><div style="width:30%;"><p>&nbsp;</p><p>ATASAN TIDAK LANGSUNG</p><div style="height:60px;"></div><p>(................................................)</p></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid black;padding-bottom:10px;"><div style="display:flex;align-items:center;gap:15px;"><img src="Assets/Logo-APU.png" style="width:50px; height:50px; object-fit:contain;"><div><h1 style="font-size:18pt;margin:0;font-weight:bold;">API</h1><p style="font-size:9pt;font-weight:bold;margin:0;">YAYASAN AGUNG PUTRA IBRAHIM</p></div></div><div style="text-align:right;"><p style="font-size:10pt;font-weight:bold;margin:0;">SIFAT: RAHASIA</p></div></div><div style="text-align:center;margin:20px 0;"><h2 style="font-size:14pt;text-decoration:underline;margin:0;font-weight:bold;">FORM PENILAIAN KINERJA KARYAWAN</h2></div><table style="width:100%;font-weight:bold;margin-bottom:10px; font-size:10pt; border-collapse: collapse;"><tr><td style="width:100px; padding: 3px 0;">Unit Kerja</td><td style="border-bottom:1px dotted black;">: <span id="pdf-unit"></span></td><td style="width:100px; padding-left:15px;">Nama</td><td style="border-bottom:1px dotted black;">: <span id="pdf-nama"></span></td></tr><tr style="height:8px;"></tr><tr><td style="padding: 3px 0;">JABATAN</td><td style="border-bottom:1px dotted black;">: <span id="pdf-jabatan"></span></td><td style="width:100px; padding-left:15px;">Masa Kerja</td><td style="border-bottom:1px dotted black;">: <span id="pdf-masa"></span></td></tr></table><table class="pdf-table"><thead><tr style="text-align:center; background:#eee;"><th rowspan="2" style="width:30px;">No.</th><th rowspan="2">ASPEK PENILAIAN</th><th colspan="4">SKOR</th></tr><tr style="text-align:center;font-size:8pt; background:#eee;"><th style="width:40px;">A</th><th style="width:40px;">B</th><th style="width:40px;">C</th><th style="width:40px;">D</th></tr></thead><tbody id="pdf-table-body"></tbody><tfoot><tr style="background:#f9f9f9;"><td colspan="2" style="text-align:right;font-weight:bold; padding:8px;">TOTAL NILAI</td><td colspan="4" style="text-align:center;font-size:16pt;font-weight:bold; border:2px solid black;"><span id="pdf-total-skor"></span></td></tr></tfoot></table><div style="display:flex;justify-content:space-between;margin-top:20px;"><div style="width:45%;"><p style="font-weight:bold;font-size:9pt;margin-bottom:5px;">KLASIFIKASI NILAI</p><table class="pdf-table" style="font-size:8pt;text-align:center;"><tr style="background:#f2f2f2;"><th>MUTU</th><th>BOBOT</th><th>KUALITAS</th></tr><tr><td>A</td><td>511-680</td><td>SANGAT BAIK</td></tr><tr><td>B</td><td>341-510</td><td>BAIK</td></tr><tr><td>C</td><td>171-340</td><td>CUKUP</td></tr><tr><td>D</td><td>0-170</td><td>BURUK</td></tr></table></div><div style="width:35%;border:2px solid black;text-align:center;padding:10px;"><p style="font-weight:bold;margin-bottom:10px;font-size:9pt;">NILAI AKHIR</p><div style="height:50px;"></div></div></div><div style="margin-top:40px;display:flex;justify-content:space-between;text-align:center;font-size:9pt;"><div style="width:30%;"><p>Mengetahui,</p><p>Ketua Yayasan</p><div style="height:60px;"></div><p style="text-decoration:underline;font-weight:bold;">apt. Seviana, M.Si</p></div><div style="width:30%;"><p>&nbsp;</p><p>ATASAN LANGSUNG</p><div style="height:60px;"></div><p>(................................................)</p></div><div style="width:30%;"><p>&nbsp;</p><p>ATASAN TIDAK LANGSUNG</p><div style="height:60px;"></div><p>(................................................)</p></div></div>
     </div>
 </body>
 </html>
