@@ -110,8 +110,9 @@
             if (!document.getElementById('history-view').classList.contains('hidden')) {
                 window.renderHistoryTable();
             }
-            if (selectedEmployee && window.detailEmpChartInstance) {
-                window.openEmployeeHistoryModal(selectedEmployee.id, selectedEmployee.name, selectedEmployee.position);
+            const detailModal = document.getElementById('employee-detail-modal');
+            if (detailModal && !detailModal.classList.contains('hidden') && window.currentDetailEmployee) {
+                window.openEmployeeHistoryModal(window.currentDetailEmployee.id, window.currentDetailEmployee.name, window.currentDetailEmployee.pos);
             }
         };
 
@@ -885,29 +886,92 @@
             finally { saveBtn.disabled = false; }
         };
 
-        window.handlePrintPDF = async (id) => {
+        window.handlePrintPDF = (id) => {
             const data = allHistoryData.find(h => h.id === id);
             if (!data) return;
+            
             const template = document.getElementById('pdf-template');
             document.getElementById('pdf-unit').innerText = data.unit || '-';
             document.getElementById('pdf-jabatan').innerText = data.position || '-';
             document.getElementById('pdf-nama').innerText = data.employeeName || '-';
             document.getElementById('pdf-masa').innerText = data.masaKerja || '-';
             document.getElementById('pdf-total-skor').innerText = data.score;
+            document.getElementById('pdf-nilai-akhir').innerText = data.grade || '-';
+            
             const tbody = document.getElementById('pdf-table-body');
             tbody.innerHTML = '';
             APP_DATA.sections.forEach((section) => {
-                tbody.insertAdjacentHTML('beforeend', `<tr style="background:#f2f2f2;font-weight:bold;"><td colspan="6" style="border:1px solid black;padding:6px;font-size:10pt;">${section.title}</td></tr>`);
+                tbody.insertAdjacentHTML('beforeend', `<tr style="font-weight:bold;"><td colspan="10" style="border:1px solid black;padding:6px;font-size:10pt;">${section.title}</td></tr>`);
                 section.items.forEach((item, iIdx) => {
                     const score = data.individualScores?.[`${section.id}-${iIdx}`];
-                    tbody.insertAdjacentHTML('beforeend', `<tr style="font-size: 10pt;"><td style="text-align:center;border:1px solid black;padding:4px;">${iIdx + 1}</td><td style="border:1px solid black;padding-left:6px;">${item}</td><td style="text-align:center;border:1px solid black;font-weight:bold;width:45px;">${score === 4 ? 'V' : ''}</td><td style="text-align:center;border:1px solid black;font-weight:bold;width:45px;">${score === 3 ? 'V' : ''}</td><td style="text-align:center;border:1px solid black;font-weight:bold;width:45px;">${score === 2 ? 'V' : ''}</td><td style="text-align:center;border:1px solid black;font-weight:bold;width:45px;">${score === 1 ? 'V' : ''}</td></tr>`);
+                    tbody.insertAdjacentHTML('beforeend', `<tr style="font-size: 10pt;">
+                        <td style="text-align:center;border:1px solid black;padding:4px;">${iIdx + 1}</td>
+                        <td style="border:1px solid black;padding-left:6px;">${item}</td>
+                        <td style="text-align:center;border:1px solid black;font-weight:bold;width:25px;background:#bdd7ee;">${score === 4 ? 'V' : ''}</td>
+                        <td style="border:1px solid black;width:25px;"></td>
+                        <td style="text-align:center;border:1px solid black;font-weight:bold;width:25px;background:#bdd7ee;">${score === 3 ? 'V' : ''}</td>
+                        <td style="border:1px solid black;width:25px;"></td>
+                        <td style="text-align:center;border:1px solid black;font-weight:bold;width:25px;background:#bdd7ee;">${score === 2 ? 'V' : ''}</td>
+                        <td style="border:1px solid black;width:25px;"></td>
+                        <td style="text-align:center;border:1px solid black;font-weight:bold;width:25px;background:#bdd7ee;">${score === 1 ? 'V' : ''}</td>
+                        <td style="border:1px solid black;width:25px;"></td>
+                    </tr>`);
                 });
             });
-            const opt = { margin: 10, filename: `Penilaian_${data.employeeName}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-            template.style.display = 'block';
-            template.style.position = 'static';
-            try { await html2pdf().set(opt).from(template).save(); } catch (err) { showToast("Gagal cetak PDF", "error"); }
-            finally { template.style.display = 'none'; template.style.position = 'fixed'; }
+            
+            // Create a hidden iframe for native print
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'fixed';
+            iframe.style.right = '0';
+            iframe.style.bottom = '0';
+            iframe.style.width = '0';
+            iframe.style.height = '0';
+            iframe.style.border = '0';
+            document.body.appendChild(iframe);
+            
+            const doc = iframe.contentWindow.document;
+            
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Penilaian Kinerja - ${data.employeeName}</title>
+                    <style>
+                        @page { size: A4 portrait; margin: 15mm 20mm; }
+                        body { 
+                            font-family: "Times New Roman", Times, serif; 
+                            font-size: 11pt; 
+                            line-height: 1.3; 
+                            color: black; 
+                            background: white; 
+                            margin: 0;
+                            padding: 0;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        .pdf-table { width: 100%; border-collapse: collapse; margin: 10px 0; border: 1.5px solid black; }
+                        .pdf-table th, .pdf-table td { border: 1px solid black; padding: 4px; }
+                        table { page-break-inside: auto; }
+                        tr { page-break-inside: avoid; page-break-after: auto; }
+                    </style>
+                </head>
+                <body>
+                    ${template.innerHTML}
+                </body>
+                </html>
+            `;
+            
+            doc.open();
+            doc.write(htmlContent);
+            doc.close();
+            
+            // Wait for images to load before printing
+            setTimeout(() => {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+                // Clean up after print dialog is closed
+                setTimeout(() => { document.body.removeChild(iframe); }, 1000);
+            }, 300);
         };
 
         window.resetForm = () => {
@@ -935,7 +999,9 @@
             updateUIState();
         };
 
+        window.currentDetailEmployee = null;
         window.openEmployeeHistoryModal = (employeeId, fallbackName, fallbackPos) => {
+            window.currentDetailEmployee = { id: employeeId, name: fallbackName, pos: fallbackPos };
             const emp = EMPLOYEE_DB.find(e => e.id == employeeId);
             const name = emp ? emp.name : fallbackName;
             const pos = emp ? emp.position : fallbackPos;
@@ -1690,7 +1756,131 @@
     </div>
 
     <div id="pdf-template">
-        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid black;padding-bottom:10px;"><div style="display:flex;align-items:center;gap:15px;"><img src="Assets/Logo-APU.png" style="width:50px; height:50px; object-fit:contain;"><div><h1 style="font-size:18pt;margin:0;font-weight:bold;">API</h1><p style="font-size:9pt;font-weight:bold;margin:0;">YAYASAN AGUNG PUTRA IBRAHIM</p></div></div><div style="text-align:right;"><p style="font-size:10pt;font-weight:bold;margin:0;">SIFAT: RAHASIA</p></div></div><div style="text-align:center;margin:20px 0;"><h2 style="font-size:14pt;text-decoration:underline;margin:0;font-weight:bold;">FORM PENILAIAN KINERJA KARYAWAN</h2></div><table style="width:100%;font-weight:bold;margin-bottom:10px; font-size:10pt; border-collapse: collapse;"><tr><td style="width:100px; padding: 3px 0;">Unit Kerja</td><td style="border-bottom:1px dotted black;">: <span id="pdf-unit"></span></td><td style="width:100px; padding-left:15px;">Nama</td><td style="border-bottom:1px dotted black;">: <span id="pdf-nama"></span></td></tr><tr style="height:8px;"></tr><tr><td style="padding: 3px 0;">JABATAN</td><td style="border-bottom:1px dotted black;">: <span id="pdf-jabatan"></span></td><td style="width:100px; padding-left:15px;">Masa Kerja</td><td style="border-bottom:1px dotted black;">: <span id="pdf-masa"></span></td></tr></table><table class="pdf-table"><thead><tr style="text-align:center; background:#eee;"><th rowspan="2" style="width:30px;">No.</th><th rowspan="2">ASPEK PENILAIAN</th><th colspan="4">SKOR</th></tr><tr style="text-align:center;font-size:8pt; background:#eee;"><th style="width:40px;">A</th><th style="width:40px;">B</th><th style="width:40px;">C</th><th style="width:40px;">D</th></tr></thead><tbody id="pdf-table-body"></tbody><tfoot><tr style="background:#f9f9f9;"><td colspan="2" style="text-align:right;font-weight:bold; padding:8px;">TOTAL NILAI</td><td colspan="4" style="text-align:center;font-size:16pt;font-weight:bold; border:2px solid black;"><span id="pdf-total-skor"></span></td></tr></tfoot></table><div style="display:flex;justify-content:space-between;margin-top:20px;"><div style="width:45%;"><p style="font-weight:bold;font-size:9pt;margin-bottom:5px;">KLASIFIKASI NILAI</p><table class="pdf-table" style="font-size:8pt;text-align:center;"><tr style="background:#f2f2f2;"><th>MUTU</th><th>BOBOT</th><th>KUALITAS</th></tr><tr><td>A</td><td>511-680</td><td>SANGAT BAIK</td></tr><tr><td>B</td><td>341-510</td><td>BAIK</td></tr><tr><td>C</td><td>171-340</td><td>CUKUP</td></tr><tr><td>D</td><td>0-170</td><td>BURUK</td></tr></table></div><div style="width:35%;border:2px solid black;text-align:center;padding:10px;"><p style="font-weight:bold;margin-bottom:10px;font-size:9pt;">NILAI AKHIR</p><div style="height:50px;"></div></div></div><div style="margin-top:40px;display:flex;justify-content:space-between;text-align:center;font-size:9pt;"><div style="width:30%;"><p>Mengetahui,</p><p>Ketua Yayasan</p><div style="height:60px;"></div><p style="text-decoration:underline;font-weight:bold;">apt. Seviana, M.Si</p></div><div style="width:30%;"><p>&nbsp;</p><p>ATASAN LANGSUNG</p><div style="height:60px;"></div><p>(................................................)</p></div><div style="width:30%;"><p>&nbsp;</p><p>ATASAN TIDAK LANGSUNG</p><div style="height:60px;"></div><p>(................................................)</p></div></div>
+        <table style="width:100%; border-collapse: collapse; border: 1px solid black; font-size: 10pt; font-family: 'Times New Roman', Times, serif;">
+            <tr>
+                <td rowspan="3" style="width: 15%; border: 1px solid black; text-align: center; padding: 5px;">
+                    <img src="Assets/Logo-APU.png" style="width:40px; height:40px; object-fit:contain;">
+                    <div style="font-size:12pt; font-weight:bold; margin-top:2px;">API</div>
+                    <div style="font-size:6pt; line-height: 1.1;">Yayasan<br>Agung Putra Ibrahim</div>
+                </td>
+                <td rowspan="3" style="width: 45%; border: 1px solid black; text-align: center; font-weight: bold; font-size: 14pt;">
+                    FORM PENILAIAN KINERJA KARYAWAN
+                </td>
+                <td style="width: 15%; border: 1px solid black; padding-left: 5px; background: #d9e2f3;">SIFAT</td>
+                <td style="width: 25%; border: 1px solid black; padding-left: 5px; background: #d9e2f3;">: Rahasia</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding-left: 5px; background: #b4c6e7;">Unit Kerja</td>
+                <td style="border: 1px solid black; padding-left: 5px; background: #b4c6e7;">: <span id="pdf-unit"></span></td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding-left: 5px; background: #b4c6e7;">JABATAN</td>
+                <td style="border: 1px solid black; padding-left: 5px; background: #b4c6e7;">: <span id="pdf-jabatan"></span></td>
+            </tr>
+            <tr>
+                <td colspan="2" style="border: 1px solid black; padding: 5px; font-weight: bold;">
+                    Nama &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <span id="pdf-nama"></span>
+                </td>
+                <td colspan="2" style="border: 1px solid black; padding: 5px; font-weight: bold;">
+                    Masa Kerja &nbsp;: <span id="pdf-masa"></span>
+                </td>
+            </tr>
+        </table>
+
+        <table class="pdf-table" style="margin-top: -1px; width:100%;">
+            <thead>
+                <tr style="text-align:center; font-weight:bold;">
+                    <th rowspan="3" style="width:5%; border:1px solid black; padding: 5px;">No.</th>
+                    <th rowspan="3" style="width:45%; border:1px solid black; padding: 5px;">ASPEK PENILAIAN</th>
+                    <th colspan="8" style="border:1px solid black; padding: 5px;">SKOR</th>
+                </tr>
+                <tr style="text-align:center; font-weight:bold; font-size:10pt;">
+                    <th colspan="2" style="width:12.5%; border:1px solid black;">A</th>
+                    <th colspan="2" style="width:12.5%; border:1px solid black;">B</th>
+                    <th colspan="2" style="width:12.5%; border:1px solid black;">C</th>
+                    <th colspan="2" style="width:12.5%; border:1px solid black;">D</th>
+                </tr>
+                <tr style="text-align:center; font-weight:bold; font-size:10pt;">
+                    <th colspan="2" style="border:1px solid black;">16 - 20</th>
+                    <th colspan="2" style="border:1px solid black;">11 - 15</th>
+                    <th colspan="2" style="border:1px solid black;">6 - 10</th>
+                    <th colspan="2" style="border:1px solid black;">0 - 5</th>
+                </tr>
+            </thead>
+            <tbody id="pdf-table-body"></tbody>
+        </table>
+        
+        <div style="display:flex; justify-content:space-between; margin-top:20px;">
+            <div style="width:45%;">
+                <table style="width:100%; border-collapse: collapse; border: 1px solid black; font-size: 10pt; text-align: center;">
+                    <tr>
+                        <td colspan="3" style="border: 1px solid black; font-weight: bold; padding: 5px;">KLASIFIKASI NILAI</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid black; font-weight: bold; padding: 2px;">NILAI MUTU</td>
+                        <td style="border: 1px solid black; font-weight: bold; padding: 2px;">BOBOT</td>
+                        <td style="border: 1px solid black; font-weight: bold; padding: 2px;">KUALITAS</td>
+                    </tr>
+                    <tr><td style="border: 1px solid black; padding: 2px;">A</td><td style="border: 1px solid black; padding: 2px;">511-680</td><td style="border: 1px solid black; padding: 2px;">SANGAT BAIK</td></tr>
+                    <tr><td style="border: 1px solid black; padding: 2px;">B</td><td style="border: 1px solid black; padding: 2px;">341-510</td><td style="border: 1px solid black; padding: 2px;">BAIK</td></tr>
+                    <tr><td style="border: 1px solid black; padding: 2px;">C</td><td style="border: 1px solid black; padding: 2px;">171-340</td><td style="border: 1px solid black; padding: 2px;">CUKUP</td></tr>
+                    <tr><td style="border: 1px solid black; padding: 2px;">D</td><td style="border: 1px solid black; padding: 2px;">0-170</td><td style="border: 1px solid black; padding: 2px;">BURUK</td></tr>
+                </table>
+            </div>
+
+            <div style="width:50%;">
+                <table style="width:100%; border-collapse: collapse; border: 1px solid black; font-size: 10pt; text-align: center;">
+                    <tr>
+                        <td colspan="2" style="border: 1px solid black; font-weight: bold; padding: 3px;">TOTAL NILAI <span id="pdf-total-skor" style="margin-left: 10px;"></span></td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid black; width: 50%; background: #bdd7ee; padding: 5px;">NAMA & PARAF ATASAN<br>LANGSUNG</td>
+                        <td style="border: 1px solid black; width: 50%; padding: 5px;">NAMA & PARAF ATASAN<br>TIDAK LANGSUNG</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid black; height: 50px;"></td>
+                        <td style="border: 1px solid black; height: 50px;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="border: 1px solid black; padding: 3px;">NILAI AKHIR</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="border: 1px solid black; height: 40px; font-size: 18pt; font-weight: bold;" id="pdf-nilai-akhir"></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <div style="text-align: center; font-weight: bold; font-size: 11pt; margin-bottom: 5px;">CATATAN</div>
+            <table style="width: 100%; border-collapse: collapse; border: 1px solid black; font-size: 10pt;">
+                <tr>
+                    <td style="border: 1px solid black; width: 30%; padding: 8px;">Prestasi yang perlu dicatat</td>
+                    <td style="border: 1px solid black; width: 70%; padding: 8px;">:</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid black; padding: 8px;">Indisipliner yang perlu dicatat</td>
+                    <td style="border: 1px solid black; padding: 8px;">:</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid black; padding: 8px;">Saran dan perbaikan</td>
+                    <td style="border: 1px solid black; padding: 8px;">:</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid black; padding: 8px;">Keputusan Atasan Langsung</td>
+                    <td style="border: 1px solid black; padding: 8px;">:</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="margin-top: 30px; display: flex; justify-content: flex-end;">
+            <table style="width: 30%; border-collapse: collapse; border: 1px solid black; font-size: 10pt; text-align: center;">
+                <tr><td style="border: 1px solid black; padding: 4px;">Mengetahui</td></tr>
+                <tr><td style="border: 1px solid black; padding: 4px;">Ketua Yayasan</td></tr>
+                <tr><td style="border: 1px solid black; height: 70px;"></td></tr>
+                <tr><td style="border: 1px solid black; padding: 4px;">apt. Seviana, M.Si</td></tr>
+            </table>
+        </div>
     </div>
 </body>
 </html>
